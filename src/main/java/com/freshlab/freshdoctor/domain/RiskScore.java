@@ -2,24 +2,30 @@ package com.freshlab.freshdoctor.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "risk_score")
+@Table(
+        name = "risk_score",
+        uniqueConstraints = @UniqueConstraint(name = "uk_risk_item_date", columnNames = {"item_code", "score_date"})
+)
 @Getter
 @Setter
 @NoArgsConstructor
 public class RiskScore {
 
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(name = "item_code", nullable = false)
@@ -29,10 +35,10 @@ public class RiskScore {
     private LocalDate scoreDate;
 
     @Column(name = "total_score", nullable = false)
-    private Integer totalScore; // 0~100
+    private Integer totalScore;
 
     @Column(name = "grade")
-    private String grade; // 안정/관심/주의/경계/심각
+    private String grade;
 
     @Column(name = "price_score")
     private Integer priceScore;
@@ -52,6 +58,12 @@ public class RiskScore {
     @Column(name = "news_score")
     private Integer newsScore;
 
+    @Column(name = "recommendation", columnDefinition = "TEXT")
+    private String recommendation;
+
     @Column(name = "reasons", columnDefinition = "TEXT")
-    private String reasons; // JSON 문자열로 저장
+    private String reasons;
+
+    @Column(name = "created_at", nullable = false)
+    private LocalDateTime createdAt = LocalDateTime.now();
 }
