@@ -11,21 +11,17 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(
-        name = "price_history",
-        uniqueConstraints = @UniqueConstraint(
-                name = "uk_price_item_date_market_source",
-                columnNames = {"item_code", "price_date", "market_type", "source"}
-        )
+        name = "news_article",
+        uniqueConstraints = @UniqueConstraint(name = "uk_news_item_link", columnNames = {"item_code", "link_hash"})
 )
 @Getter
 @Setter
 @NoArgsConstructor
-public class PriceHistory {
+public class NewsArticle {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -34,23 +30,29 @@ public class PriceHistory {
     @Column(name = "item_code", nullable = false)
     private String itemCode;
 
-    @Column(name = "item_name")
-    private String itemName;
+    @Column(name = "query_text", nullable = false)
+    private String queryText;
 
-    @Column(name = "price_date", nullable = false)
-    private LocalDate priceDate;
+    @Column(name = "title", nullable = false, length = 500)
+    private String title;
 
-    @Column(name = "price", nullable = false)
-    private Integer price;
+    @Column(name = "link", nullable = false, length = 1000)
+    private String link;
 
-    @Column(name = "unit")
-    private String unit;
+    @Column(name = "link_hash", nullable = false, length = 64)
+    private String linkHash;
 
-    @Column(name = "market_type")
-    private String marketType;
+    @Column(name = "description", columnDefinition = "TEXT")
+    private String description;
+
+    @Column(name = "published_at")
+    private LocalDateTime publishedAt;
+
+    @Column(name = "news_risk_score")
+    private Integer newsRiskScore;
 
     @Column(name = "source", nullable = false)
-    private String source = "KAMIS";
+    private String source = "NAVER";
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
