@@ -18,8 +18,8 @@ import java.time.LocalDateTime;
 @Table(
         name = "price_history",
         uniqueConstraints = @UniqueConstraint(
-                name = "uk_price_item_date_market_source",
-                columnNames = {"item_code", "price_date", "market_type", "source"}
+                name = "uk_price_name_date_unit_source",
+                columnNames = {"item_name", "price_date", "unit", "source"}
         )
 )
 @Getter
@@ -34,8 +34,17 @@ public class PriceHistory {
     @Column(name = "item_code", nullable = false)
     private String itemCode;
 
-    @Column(name = "item_name")
+    @Column(name = "item_name", nullable = false)
     private String itemName;
+
+    @Column(name = "kamis_item_code")
+    private String kamisItemCode;
+
+    @Column(name = "kamis_kind_code")
+    private String kamisKindCode;
+
+    @Column(name = "kamis_rank_code")
+    private String kamisRankCode;
 
     @Column(name = "price_date", nullable = false)
     private LocalDate priceDate;
