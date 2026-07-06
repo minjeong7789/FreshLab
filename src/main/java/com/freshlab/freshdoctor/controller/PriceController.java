@@ -27,9 +27,26 @@ public class PriceController {
             @PathVariable String itemCode,
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-            LocalDate date
+            LocalDate date,
+            @RequestParam(required = false) String productClsCode,
+            @RequestParam(required = false) String itemCategoryCode,
+            @RequestParam(required = false) String kamisItemCode,
+            @RequestParam(required = false) String kindCode,
+            @RequestParam(required = false) String productRankCode,
+            @RequestParam(required = false) String countryCode,
+            @RequestParam(required = false) String convertKgYn
     ) {
-        return kamisPriceService.collectDailyPrice(itemCode, date);
+        return kamisPriceService.collectDailyPrice(
+                itemCode,
+                date,
+                productClsCode,
+                itemCategoryCode,
+                kamisItemCode,
+                kindCode,
+                productRankCode,
+                countryCode,
+                convertKgYn
+        );
     }
 
     @GetMapping("/{itemCode}")
@@ -45,11 +62,32 @@ public class PriceController {
         return kamisPriceService.getPrices(itemCode, startDate, endDate);
     }
 
+    @GetMapping
+    public List<PriceResponse> getPricesByItemName(
+            @RequestParam String itemName,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate startDate,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate endDate
+    ) {
+        return kamisPriceService.getPricesByItemName(itemName, startDate, endDate);
+    }
+
     @GetMapping("/{itemCode}/trend")
     public List<PriceResponse> getPriceTrend(
             @PathVariable String itemCode,
             @RequestParam(defaultValue = "30") int days
     ) {
         return kamisPriceService.getPriceTrend(itemCode, days);
+    }
+
+    @GetMapping("/trend")
+    public List<PriceResponse> getPriceTrendByItemName(
+            @RequestParam String itemName,
+            @RequestParam(defaultValue = "30") int days
+    ) {
+        return kamisPriceService.getPriceTrendByItemName(itemName, days);
     }
 }
