@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.freshlab.freshdoctor.domain.PriceHistory;
 import com.freshlab.freshdoctor.dto.KamisPriceCollectResult;
+import com.freshlab.freshdoctor.dto.PriceResponse;
 import com.freshlab.freshdoctor.repository.PriceHistoryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,6 +17,7 @@ import java.net.URI;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
@@ -66,6 +68,39 @@ public class KamisPriceService {
         } catch (Exception ex) {
             return new KamisPriceCollectResult(itemCode, 0, 0, "KAMIS price collection failed: " + ex.getMessage());
         }
+    }
+
+    @Transactional(readOnly = true)
+    public List<PriceResponse> getPrices(String itemCode, LocalDate startDate, LocalDate endDate) {
+        LocalDate resolvedEndDate = endDate == null ? LocalDate.now() : endDate;
+        LocalDate resolvedStartDate = startDate == null ? resolvedEndDate.minusDays(30) : startDate;
+
+        return priceHistoryRepository
+                .findByItemCodeAndPriceDateBetweenOrderByPriceDateAsc(itemCode, resolvedStartDate, resolvedEndDate)
+                .stream()
+                .map(PriceResponse::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<PriceResponse> getPriceTrend(String itemCode, int days) {
+        int resolvedDays = Math.max(days, 1);
+        LocalDate endDate = LocalDate.now();
+        LocalDate startDate = endDate.minusDays(resolvedDays);
+
+        List<PriceHistory> prices = priceHistoryRepository
+                .findByItemCodeAndPriceDateBetweenOrderByPriceDateAsc(itemCode, startDate, endDate);
+
+        if (prices.isEmpty()) {
+            prices = priceHistoryRepository.findTop60ByItemCodeOrderByPriceDateDesc(itemCode)
+                    .stream()
+                    .sorted(Comparator.comparing(PriceHistory::getPriceDate))
+                    .toList();
+        }
+
+        return prices.stream()
+                .map(PriceResponse::from)
+                .toList();
     }
 
     private JsonNode requestDailyPrice(String itemCode, LocalDate regDate) throws Exception {
