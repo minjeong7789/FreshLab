@@ -42,6 +42,15 @@ public class Item {
     @Column(name = "grade")
     private String grade;
 
+    @Column(name = "default_market_type")
+    private String defaultMarketType;
+
+    @Column(name = "default_rank_code")
+    private String defaultRankCode;
+
+    @Column(name = "default_unit")
+    private String defaultUnit;
+
     @Column(name = "news_keyword")
     private String newsKeyword;
 

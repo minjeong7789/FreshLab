@@ -4,8 +4,12 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.freshlab.freshdoctor.domain.PriceHistory;
 import com.freshlab.freshdoctor.domain.Item;
+import com.freshlab.freshdoctor.dto.CurrentPriceResponse;
 import com.freshlab.freshdoctor.dto.KamisPriceCollectResult;
+import com.freshlab.freshdoctor.dto.PricePointResponse;
 import com.freshlab.freshdoctor.dto.PriceResponse;
+import com.freshlab.freshdoctor.dto.PriceTrendResponse;
+import com.freshlab.freshdoctor.exception.InvalidPricePeriodException;
 import com.freshlab.freshdoctor.repository.PriceHistoryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,24 +20,27 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
 public class KamisPriceService {
 
-    private static final String SOURCE = "KAMIS";
     private static final DateTimeFormatter BASIC_DATE = DateTimeFormatter.BASIC_ISO_DATE;
     private static final DateTimeFormatter KAMIS_DATE = DateTimeFormatter.ISO_LOCAL_DATE;
     private final WebClient.Builder webClientBuilder;
     private final ObjectMapper objectMapper;
     private final PriceHistoryRepository priceHistoryRepository;
     private final ItemService itemService;
+    private final PriceValueNormalizer priceValueNormalizer;
+    private final PriceDateRangeResolver priceDateRangeResolver;
 
     @Value("${kamis.api.base-url:https://www.kamis.or.kr/service/price/xml.do}")
     private String baseUrl;
@@ -110,49 +117,132 @@ public class KamisPriceService {
 
     @Transactional(readOnly = true)
     public List<PriceResponse> getPrices(String itemCode, LocalDate startDate, LocalDate endDate) {
-        itemService.getItem(itemCode);
-        LocalDate resolvedEndDate = endDate == null ? LocalDate.now() : endDate;
-        LocalDate resolvedStartDate = startDate == null ? resolvedEndDate.minusDays(30) : startDate;
+        Item item = itemService.getItem(itemCode);
+        PriceDateRangeResolver.DateRange dateRange = priceDateRangeResolver.resolve(startDate, endDate);
 
         return priceHistoryRepository
-                .findByItemCodeAndPriceDateBetweenOrderByPriceDateAsc(itemCode, resolvedStartDate, resolvedEndDate)
+                .findByItemCodeAndMarketTypeAndKamisRankCodeAndUnitAndPriceDateBetweenOrderByPriceDateAsc(
+                        itemCode,
+                        item.getDefaultMarketType(),
+                        item.getDefaultRankCode(),
+                        item.getDefaultUnit(),
+                        dateRange.startDate(),
+                        dateRange.endDate()
+                )
                 .stream()
                 .map(PriceResponse::from)
                 .toList();
     }
 
     @Transactional(readOnly = true)
-    public List<PriceResponse> getPriceTrend(String itemCode, int days) {
-        itemService.getItem(itemCode);
-        int resolvedDays = Math.max(days, 1);
-        LocalDate endDate = LocalDate.now();
-        LocalDate startDate = endDate.minusDays(resolvedDays);
-
-        List<PriceHistory> prices = priceHistoryRepository
-                .findByItemCodeAndPriceDateBetweenOrderByPriceDateAsc(itemCode, startDate, endDate);
-
-        if (prices.isEmpty()) {
-            prices = priceHistoryRepository.findTop60ByItemCodeOrderByPriceDateDesc(itemCode)
-                    .stream()
-                    .sorted(Comparator.comparing(PriceHistory::getPriceDate))
-                    .toList();
+    public PriceTrendResponse getPriceTrend(String itemCode, int days) {
+        if (days != 7 && days != 14 && days != 30) {
+            throw new InvalidPricePeriodException();
         }
 
-        return prices.stream()
-                .map(PriceResponse::from)
-                .toList();
+        Item item = itemService.getItem(itemCode);
+        LocalDate endDate = LocalDate.now();
+        LocalDate startDate = endDate.minusDays(days - 1L);
+
+        List<PriceHistory> prices = priceHistoryRepository
+                .findByItemCodeAndMarketTypeAndKamisRankCodeAndUnitAndPriceDateBetweenOrderByPriceDateAsc(
+                        itemCode,
+                        item.getDefaultMarketType(),
+                        item.getDefaultRankCode(),
+                        item.getDefaultUnit(),
+                        startDate,
+                        endDate
+                );
+
+        Map<LocalDate, PriceHistory> pricesByDate = new LinkedHashMap<>();
+        for (PriceHistory price : prices) {
+            pricesByDate.put(price.getPriceDate(), price);
+        }
+
+        PriceHistory seedPrice = priceHistoryRepository
+                .findTopByItemCodeAndMarketTypeAndKamisRankCodeAndUnitAndPriceDateLessThanEqualOrderByPriceDateDesc(
+                        itemCode,
+                        item.getDefaultMarketType(),
+                        item.getDefaultRankCode(),
+                        item.getDefaultUnit(),
+                        startDate
+                )
+                .orElse(null);
+        PriceHistory lastActualPrice = seedPrice;
+
+        List<PricePointResponse> trend = new ArrayList<>();
+        for (LocalDate date = startDate; !date.isAfter(endDate); date = date.plusDays(1)) {
+            PriceHistory actualPrice = pricesByDate.get(date);
+            if (actualPrice != null) {
+                lastActualPrice = actualPrice;
+                trend.add(toTrendPoint(date, actualPrice, false));
+            } else if (lastActualPrice != null) {
+                trend.add(toTrendPoint(date, lastActualPrice, true));
+            }
+        }
+        PriceHistory latestActualPrice = lastActualPrice;
+
+        CurrentPriceResponse current = null;
+        if (!trend.isEmpty()) {
+            PricePointResponse latestPoint = trend.get(trend.size() - 1);
+            current = new CurrentPriceResponse(
+                    latestPoint.price(),
+                    latestActualPrice.getUnit(),
+                    endDate,
+                    latestPoint.actualPriceDate(),
+                    latestPoint.carriedForward()
+            );
+        }
+
+        List<PriceHistory> relevantActualPrices = new ArrayList<>(prices);
+        if (seedPrice != null) {
+            relevantActualPrices.add(seedPrice);
+        }
+
+        Integer normalPrice = relevantActualPrices.stream()
+                .filter(price -> price.getNormalYearPrice() != null)
+                .max(Comparator.comparing(PriceHistory::getPriceDate))
+                .map(PriceHistory::getNormalYearPrice)
+                .orElse(null);
+
+        LocalDateTime lastUpdatedAt = relevantActualPrices.stream()
+                .map(PriceHistory::getUpdatedAt)
+                .filter(java.util.Objects::nonNull)
+                .max(LocalDateTime::compareTo)
+                .orElse(null);
+
+        return new PriceTrendResponse(
+                item.getItemCode(),
+                item.getItemName(),
+                current,
+                normalPrice,
+                lastUpdatedAt,
+                trend
+        );
+    }
+
+    private PricePointResponse toTrendPoint(
+            LocalDate displayDate,
+            PriceHistory actualPrice,
+            boolean carriedForward
+    ) {
+        return new PricePointResponse(
+                displayDate,
+                actualPrice.getPrice(),
+                actualPrice.getPriceDate(),
+                carriedForward
+        );
     }
 
     @Transactional(readOnly = true)
     public List<PriceResponse> getPricesByItemName(String itemName, LocalDate startDate, LocalDate endDate) {
-        LocalDate resolvedEndDate = endDate == null ? LocalDate.now() : endDate;
-        LocalDate resolvedStartDate = startDate == null ? resolvedEndDate.minusDays(30) : startDate;
+        PriceDateRangeResolver.DateRange dateRange = priceDateRangeResolver.resolve(startDate, endDate);
 
         return priceHistoryRepository
                 .findByItemNameContainingAndPriceDateBetweenOrderByPriceDateAsc(
                         itemName,
-                        resolvedStartDate,
-                        resolvedEndDate
+                        dateRange.startDate(),
+                        dateRange.endDate()
                 )
                 .stream()
                 .map(PriceResponse::from)
@@ -229,28 +319,21 @@ public class KamisPriceService {
     private void saveOrUpdate(KamisPriceRow row) {
         String unit = defaultIfBlank(row.unit(), "UNKNOWN");
         String marketType = defaultIfBlank(row.marketType(), "UNKNOWN");
+        String rankCode = defaultIfBlank(row.kamisRankCode(), "UNKNOWN");
 
-        PriceHistory priceHistory = priceHistoryRepository
-                .findByItemCodeAndPriceDateAndUnitAndSource(
-                        row.itemCode(),
-                        row.priceDate(),
-                        unit,
-                        SOURCE
-                )
-                .orElseGet(PriceHistory::new);
-
-        priceHistory.setItemCode(row.itemCode());
-        priceHistory.setItemName(row.itemName());
-        priceHistory.setKamisItemCode(row.kamisItemCode());
-        priceHistory.setKamisKindCode(row.kamisKindCode());
-        priceHistory.setKamisRankCode(row.kamisRankCode());
-        priceHistory.setPriceDate(row.priceDate());
-        priceHistory.setPrice(row.price());
-        priceHistory.setUnit(unit);
-        priceHistory.setMarketType(marketType);
-        priceHistory.setSource(SOURCE);
-
-        priceHistoryRepository.save(priceHistory);
+        priceHistoryRepository.upsert(
+                row.itemCode(),
+                row.itemName(),
+                row.kamisItemCode(),
+                row.kamisKindCode(),
+                rankCode,
+                row.priceDate(),
+                row.price(),
+                row.normalYearPrice(),
+                unit,
+                marketType,
+                LocalDateTime.now()
+        );
     }
 
     private void collectRows(JsonNode node, KamisRequest request, List<KamisPriceRow> rows) {
@@ -290,6 +373,7 @@ public class KamisPriceService {
         PriceValue priceValue = firstPriceValue(node, request);
         LocalDate priceDate = priceValue.priceDate();
         Integer price = priceValue.price();
+        Integer normalYearPrice = priceValueNormalizer.normalize(firstText(node, "dpr7"));
 
         if (priceDate == null) {
             priceDate = request.regDate();
@@ -333,6 +417,7 @@ public class KamisPriceService {
                 kamisRankCode,
                 priceDate,
                 price,
+                normalYearPrice,
                 unit,
                 isBlank(marketType) ? "UNKNOWN" : marketType
         );
@@ -347,7 +432,7 @@ public class KamisPriceService {
         };
 
         for (String[] pair : dayPricePairs) {
-            Integer price = parsePrice(firstText(node, pair[1]));
+            Integer price = priceValueNormalizer.normalize(firstText(node, pair[1]));
             if (price != null) {
                 LocalDate date = parseKamisDayLabel(firstText(node, pair[0]), request.regDate());
                 return new PriceValue(date, price);
@@ -355,7 +440,7 @@ public class KamisPriceService {
         }
 
         LocalDate date = parseDate(firstText(node, "regday", "yyyy", "price_date", "date", "regDate"));
-        Integer price = parsePrice(firstText(node, "price", "avg_price", "avgPrice", "value"));
+        Integer price = priceValueNormalizer.normalize(firstText(node, "price", "avg_price", "avgPrice", "value"));
         return new PriceValue(date, price);
     }
 
@@ -432,18 +517,6 @@ public class KamisPriceService {
         return parsedDate == null ? fallbackDate : parsedDate;
     }
 
-    private Integer parsePrice(String value) {
-        if (isBlank(value) || "-".equals(value.trim())) {
-            return null;
-        }
-
-        String number = value.toLowerCase(Locale.ROOT).replaceAll("[^0-9]", "");
-        if (number.isBlank()) {
-            return null;
-        }
-        return Integer.parseInt(number);
-    }
-
     private boolean isBlank(String value) {
         return value == null || value.isBlank();
     }
@@ -474,7 +547,7 @@ public class KamisPriceService {
                 defaultIfBlank(itemCategoryCode, item.getKamisCategoryCode()),
                 defaultIfBlank(kamisItemCode, item.getKamisItemCode()),
                 defaultIfBlank(kindCode, item.getKamisKindCode()),
-                productRankCode,
+                defaultIfBlank(productRankCode, item.getDefaultRankCode()),
                 defaultIfBlank(countryCode, "1101"),
                 defaultIfBlank(convertKgYn, "Y")
         );
@@ -520,6 +593,7 @@ public class KamisPriceService {
             String kamisRankCode,
             LocalDate priceDate,
             Integer price,
+            Integer normalYearPrice,
             String unit,
             String marketType
     ) {

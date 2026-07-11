@@ -14,9 +14,9 @@ public record PriceResponse(
         String kamisRankCode,
         LocalDate priceDate,
         Integer price,
+        Integer normalYearPrice,
         String unit,
         String marketType,
-        String source,
         LocalDateTime createdAt
 ) {
 
@@ -30,9 +30,9 @@ public record PriceResponse(
                 priceHistory.getKamisRankCode(),
                 priceHistory.getPriceDate(),
                 priceHistory.getPrice(),
+                priceHistory.getNormalYearPrice(),
                 priceHistory.getUnit(),
                 priceHistory.getMarketType(),
-                priceHistory.getSource(),
                 priceHistory.getCreatedAt()
         );
     }
