@@ -37,6 +37,13 @@ public interface PriceHistoryRepository extends JpaRepository<PriceHistory, Long
             String unit
     );
 
+    List<PriceHistory> findTop7ByItemCodeAndMarketTypeAndKamisRankCodeAndUnitOrderByPriceDateDesc(
+            String itemCode,
+            String marketType,
+            String kamisRankCode,
+            String unit
+    );
+
     Optional<PriceHistory> findTopByItemCodeAndMarketTypeAndKamisRankCodeAndUnitAndPriceDateLessThanEqualOrderByPriceDateDesc(
             String itemCode,
             String marketType,
