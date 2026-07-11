@@ -13,11 +13,14 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.util.UriComponentsBuilder;
+import reactor.util.retry.Retry;
 
 import java.net.URI;
+import java.time.Duration;
 import java.time.LocalDate;
-import java.time.LocalTime;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,6 +31,7 @@ public class WeatherService {
 
     private static final String SOURCE = "KMA";
     private static final DateTimeFormatter BASIC_DATE = DateTimeFormatter.BASIC_ISO_DATE;
+    private static final int[] FORECAST_BASE_HOURS = {2, 5, 8, 11, 14, 17, 20, 23};
 
     private final WebClient.Builder webClientBuilder;
     private final ObjectMapper objectMapper;
@@ -49,13 +53,18 @@ public class WeatherService {
             Integer ny,
             String region
     ) {
+        String resultRegion = region;
+
         try {
             Item item = itemRepository.findById(itemCode).orElse(null);
             int resolvedNx = resolveNx(item, nx);
             int resolvedNy = resolveNy(item, ny);
             String resolvedRegion = resolveRegion(item, region);
-            LocalDate resolvedBaseDate = baseDate == null ? LocalDate.now() : baseDate;
-            String resolvedBaseTime = isBlank(baseTime) ? latestBaseTime() : baseTime;
+            resultRegion = resolvedRegion;
+
+            ForecastBase latestBase = latestForecastBase();
+            LocalDate resolvedBaseDate = baseDate == null ? latestBase.date() : baseDate;
+            String resolvedBaseTime = isBlank(baseTime) ? latestBase.time() : baseTime;
 
             JsonNode root = requestForecast(resolvedBaseDate, resolvedBaseTime, resolvedNx, resolvedNy);
             List<WeatherRow> rows = parseRows(root, itemCode, resolvedRegion, resolvedNx, resolvedNy, resolvedBaseDate, resolvedBaseTime);
@@ -68,7 +77,7 @@ public class WeatherService {
 
             return new WeatherCollectResult(itemCode, resolvedRegion, rows.size(), savedCount, "Weather forecast collection completed.");
         } catch (Exception ex) {
-            return new WeatherCollectResult(itemCode, region, 0, 0, "Weather forecast collection failed: " + ex.getMessage());
+            return new WeatherCollectResult(itemCode, resultRegion, 0, 0, "Weather forecast collection failed: " + ex.getMessage());
         }
     }
 
@@ -106,12 +115,36 @@ public class WeatherService {
                 .uri(uri)
                 .retrieve()
                 .bodyToMono(String.class)
-                .block();
+                .retryWhen(
+                        Retry.backoff(2, Duration.ofSeconds(1))
+                                .filter(this::isRetryableWeatherError)
+                )
+                .block(Duration.ofSeconds(15));
 
         if (isBlank(body)) {
             throw new IllegalStateException("Empty weather response.");
         }
-        return objectMapper.readTree(body);
+
+        JsonNode root = objectMapper.readTree(body);
+        validateWeatherResponse(root);
+        return root;
+    }
+
+    private void validateWeatherResponse(JsonNode root) {
+        JsonNode header = root.path("response").path("header");
+        String resultCode = header.path("resultCode").asText("");
+        String resultMessage = header.path("resultMsg").asText("");
+
+        if (!"00".equals(resultCode)) {
+            throw new IllegalStateException(
+                    "KMA API error: code=" + resultCode + ", message=" + resultMessage
+            );
+        }
+    }
+
+    private boolean isRetryableWeatherError(Throwable throwable) {
+        return throwable instanceof WebClientResponseException exception
+                && exception.getStatusCode().is5xxServerError();
     }
 
     private List<WeatherRow> parseRows(
@@ -216,27 +249,20 @@ public class WeatherService {
         return "광주";
     }
 
-    private String latestBaseTime() {
-        int hour = LocalTime.now().getHour();
-        if (hour >= 23) {
-            return "2300";
+    private ForecastBase latestForecastBase() {
+        LocalDateTime availableAt = LocalDateTime.now().minusMinutes(15);
+
+        for (int i = FORECAST_BASE_HOURS.length - 1; i >= 0; i--) {
+            int baseHour = FORECAST_BASE_HOURS[i];
+            if (availableAt.getHour() >= baseHour) {
+                return new ForecastBase(
+                        availableAt.toLocalDate(),
+                        String.format("%02d00", baseHour)
+                );
+            }
         }
-        if (hour >= 20) {
-            return "2000";
-        }
-        if (hour >= 17) {
-            return "1700";
-        }
-        if (hour >= 14) {
-            return "1400";
-        }
-        if (hour >= 11) {
-            return "1100";
-        }
-        if (hour >= 8) {
-            return "0800";
-        }
-        return "0500";
+
+        return new ForecastBase(availableAt.toLocalDate().minusDays(1), "2300");
     }
 
     private LocalDate parseBasicDate(String value) {
@@ -277,6 +303,12 @@ public class WeatherService {
             String category,
             String valueText,
             Double valueNumber
+    ) {
+    }
+
+    private record ForecastBase(
+            LocalDate date,
+            String time
     ) {
     }
 }

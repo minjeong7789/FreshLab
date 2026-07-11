@@ -21,6 +21,7 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -29,6 +30,13 @@ public class KamisPriceService {
     private static final String SOURCE = "KAMIS";
     private static final DateTimeFormatter BASIC_DATE = DateTimeFormatter.BASIC_ISO_DATE;
     private static final DateTimeFormatter KAMIS_DATE = DateTimeFormatter.ISO_LOCAL_DATE;
+    private static final Map<String, KamisItemMapping> KAMIS_ITEMS = Map.of(
+            "1001", new KamisItemMapping("배추", "200", "211", null),
+            "1002", new KamisItemMapping("무", "200", "231", null),
+            "1003", new KamisItemMapping("양파", "200", "245", null),
+            "1004", new KamisItemMapping("감자", "100", "152", null),
+            "1005", new KamisItemMapping("대파", "200", "246", null)
+    );
 
     private final WebClient.Builder webClientBuilder;
     private final ObjectMapper objectMapper;
@@ -222,11 +230,14 @@ public class KamisPriceService {
     }
 
     private void saveOrUpdate(KamisPriceRow row) {
+        String unit = defaultIfBlank(row.unit(), "UNKNOWN");
+        String marketType = defaultIfBlank(row.marketType(), "UNKNOWN");
+
         PriceHistory priceHistory = priceHistoryRepository
-                .findByItemNameAndPriceDateAndUnitAndSource(
-                        row.itemName(),
+                .findByItemCodeAndPriceDateAndUnitAndSource(
+                        row.itemCode(),
                         row.priceDate(),
-                        row.unit(),
+                        unit,
                         SOURCE
                 )
                 .orElseGet(PriceHistory::new);
@@ -238,8 +249,8 @@ public class KamisPriceService {
         priceHistory.setKamisRankCode(row.kamisRankCode());
         priceHistory.setPriceDate(row.priceDate());
         priceHistory.setPrice(row.price());
-        priceHistory.setUnit(row.unit());
-        priceHistory.setMarketType(row.marketType());
+        priceHistory.setUnit(unit);
+        priceHistory.setMarketType(marketType);
         priceHistory.setSource(SOURCE);
 
         priceHistoryRepository.save(priceHistory);
@@ -290,10 +301,18 @@ public class KamisPriceService {
             return null;
         }
 
-        String itemName = firstText(node, "item_name", "itemname", "itemName", "productName", "product_name");
-        if (isBlank(itemName)) {
+        String responseItemName = firstText(
+                node,
+                "item_name",
+                "itemname",
+                "itemName",
+                "productName",
+                "product_name"
+        );
+        if (isBlank(responseItemName)) {
             return null;
         }
+        String itemName = defaultIfBlank(request.internalItemName(), responseItemName);
         String unit = firstText(node, "unit", "unit_name", "unitName");
         String marketType = firstText(node, "market_type", "marketType", "product_cls_name", "productclscode", "countyname");
         String kamisItemCode = firstText(node, "item_code", "itemcode", "itemCode");
@@ -301,7 +320,7 @@ public class KamisPriceService {
         String kamisRankCode = firstText(node, "rank_code", "rankcode", "rankCode");
 
         return new KamisPriceRow(
-                isBlank(kamisItemCode) ? request.internalItemCode() : "KAMIS-" + kamisItemCode,
+                request.internalItemCode(),
                 itemName,
                 kamisItemCode,
                 kamisKindCode,
@@ -441,35 +460,20 @@ public class KamisPriceService {
             String convertKgYn
     ) {
         LocalDate resolvedRegDate = regDate == null ? LocalDate.now() : regDate;
+        KamisItemMapping mapping = KAMIS_ITEMS.get(itemCode);
 
         return new KamisRequest(
                 itemCode,
+                mapping == null ? null : mapping.itemName(),
                 resolvedRegDate,
                 defaultIfBlank(productClsCode, "01"),
-                defaultIfBlank(itemCategoryCode, defaultCategoryCode(itemCode)),
-                defaultIfBlank(kamisItemCode, defaultKamisItemCode(itemCode)),
-                kindCode,
+                defaultIfBlank(itemCategoryCode, mapping == null ? null : mapping.categoryCode()),
+                defaultIfBlank(kamisItemCode, mapping == null ? null : mapping.itemCode()),
+                defaultIfBlank(kindCode, mapping == null ? null : mapping.kindCode()),
                 productRankCode,
                 defaultIfBlank(countryCode, "1101"),
                 defaultIfBlank(convertKgYn, "Y")
         );
-    }
-
-    private String defaultCategoryCode(String itemCode) {
-        return switch (itemCode) {
-            case "1001", "1002", "1101", "1201" -> "200";
-            default -> "200";
-        };
-    }
-
-    private String defaultKamisItemCode(String itemCode) {
-        return switch (itemCode) {
-            case "1001" -> "211";
-            case "1002" -> "231";
-            case "1101" -> "241";
-            case "1201" -> "245";
-            default -> null;
-        };
     }
 
     private String defaultIfBlank(String value, String defaultValue) {
@@ -489,6 +493,7 @@ public class KamisPriceService {
 
     private record KamisRequest(
             String internalItemCode,
+            String internalItemName,
             LocalDate regDate,
             String productClsCode,
             String itemCategoryCode,
@@ -497,6 +502,14 @@ public class KamisPriceService {
             String productRankCode,
             String countryCode,
             String convertKgYn
+    ) {
+    }
+
+    private record KamisItemMapping(
+            String itemName,
+            String categoryCode,
+            String itemCode,
+            String kindCode
     ) {
     }
 

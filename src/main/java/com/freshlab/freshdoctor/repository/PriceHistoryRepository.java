@@ -34,8 +34,8 @@ public interface PriceHistoryRepository extends JpaRepository<PriceHistory, Long
             String source
     );
 
-    Optional<PriceHistory> findByItemNameAndPriceDateAndUnitAndSource(
-            String itemName,
+    Optional<PriceHistory> findByItemCodeAndPriceDateAndUnitAndSource(
+            String itemCode,
             LocalDate priceDate,
             String unit,
             String source

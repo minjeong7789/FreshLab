@@ -21,15 +21,21 @@ import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 public class NaverNewsService {
 
     private static final String SOURCE = "NAVER";
+    private static final Set<String> TRACKING_QUERY_PARAMETERS = Set.of(
+            "fbclid", "gclid", "dclid", "msclkid", "ref", "referrer"
+    );
     private static final List<String> RISK_KEYWORDS = List.of(
             "폭염", "한파", "폭우", "태풍", "가뭄", "병해", "수급", "급등", "급락", "부족", "파동", "폐기", "작황", "피해"
     );
@@ -122,7 +128,8 @@ public class NaverNewsService {
         }
 
         String description = cleanHtml(node.path("description").asText(""));
-        String linkHash = sha256(link);
+        String normalizedLink = normalizeLink(link);
+        String linkHash = sha256(normalizedLink);
 
         NewsArticle newsArticle = newsArticleRepository
                 .findByItemCodeAndLinkHash(itemCode, linkHash)
@@ -140,6 +147,52 @@ public class NaverNewsService {
 
         newsArticleRepository.save(newsArticle);
         return true;
+    }
+
+    private String normalizeLink(String link) {
+        String trimmed = link.trim();
+
+        try {
+            URI uri = new URI(trimmed).normalize();
+            String scheme = uri.getScheme() == null ? null : uri.getScheme().toLowerCase(Locale.ROOT);
+            String host = uri.getHost() == null ? null : uri.getHost().toLowerCase(Locale.ROOT);
+            int port = uri.getPort();
+            if (("http".equals(scheme) && port == 80) || ("https".equals(scheme) && port == 443)) {
+                port = -1;
+            }
+
+            String path = uri.getPath();
+            if (path == null || path.isBlank()) {
+                path = "/";
+            } else if (path.length() > 1 && path.endsWith("/")) {
+                path = path.substring(0, path.length() - 1);
+            }
+
+            List<String> queryParts = new ArrayList<>();
+            String rawQuery = uri.getRawQuery();
+            if (!isBlank(rawQuery)) {
+                for (String part : rawQuery.split("&")) {
+                    String key = part.split("=", 2)[0].toLowerCase(Locale.ROOT);
+                    if (!key.startsWith("utm_") && !TRACKING_QUERY_PARAMETERS.contains(key)) {
+                        queryParts.add(part);
+                    }
+                }
+            }
+            Collections.sort(queryParts);
+            String normalizedQuery = queryParts.isEmpty() ? null : String.join("&", queryParts);
+
+            return new URI(
+                    scheme,
+                    uri.getUserInfo(),
+                    host,
+                    port,
+                    path,
+                    normalizedQuery,
+                    null
+            ).toASCIIString();
+        } catch (Exception ignored) {
+            return trimmed;
+        }
     }
 
     private String resolveQuery(String itemCode, String query) {

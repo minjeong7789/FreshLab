@@ -18,8 +18,8 @@ import java.time.LocalDateTime;
 @Table(
         name = "price_history",
         uniqueConstraints = @UniqueConstraint(
-                name = "uk_price_name_date_unit_source",
-                columnNames = {"item_name", "price_date", "unit", "source"}
+                name = "uk_price_item_date_unit_source",
+                columnNames = {"item_code", "price_date", "unit", "source"}
         )
 )
 @Getter
