@@ -3,6 +3,7 @@ package com.freshlab.freshdoctor.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.freshlab.freshdoctor.domain.PriceHistory;
+import com.freshlab.freshdoctor.domain.Item;
 import com.freshlab.freshdoctor.dto.KamisPriceCollectResult;
 import com.freshlab.freshdoctor.dto.PriceResponse;
 import com.freshlab.freshdoctor.repository.PriceHistoryRepository;
@@ -21,7 +22,6 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -30,17 +30,10 @@ public class KamisPriceService {
     private static final String SOURCE = "KAMIS";
     private static final DateTimeFormatter BASIC_DATE = DateTimeFormatter.BASIC_ISO_DATE;
     private static final DateTimeFormatter KAMIS_DATE = DateTimeFormatter.ISO_LOCAL_DATE;
-    private static final Map<String, KamisItemMapping> KAMIS_ITEMS = Map.of(
-            "1001", new KamisItemMapping("배추", "200", "211", null),
-            "1002", new KamisItemMapping("무", "200", "231", null),
-            "1003", new KamisItemMapping("양파", "200", "245", null),
-            "1004", new KamisItemMapping("감자", "100", "152", null),
-            "1005", new KamisItemMapping("대파", "200", "246", null)
-    );
-
     private final WebClient.Builder webClientBuilder;
     private final ObjectMapper objectMapper;
     private final PriceHistoryRepository priceHistoryRepository;
+    private final ItemService itemService;
 
     @Value("${kamis.api.base-url:https://www.kamis.or.kr/service/price/xml.do}")
     private String baseUrl;
@@ -77,9 +70,10 @@ public class KamisPriceService {
             return new KamisPriceCollectResult(itemCode, 0, 0, "itemCode is required.");
         }
 
+        Item item = itemService.getItem(itemCode);
         try {
             KamisRequest request = resolveRequest(
-                    itemCode,
+                    item,
                     regDate,
                     productClsCode,
                     itemCategoryCode,
@@ -116,6 +110,7 @@ public class KamisPriceService {
 
     @Transactional(readOnly = true)
     public List<PriceResponse> getPrices(String itemCode, LocalDate startDate, LocalDate endDate) {
+        itemService.getItem(itemCode);
         LocalDate resolvedEndDate = endDate == null ? LocalDate.now() : endDate;
         LocalDate resolvedStartDate = startDate == null ? resolvedEndDate.minusDays(30) : startDate;
 
@@ -128,6 +123,7 @@ public class KamisPriceService {
 
     @Transactional(readOnly = true)
     public List<PriceResponse> getPriceTrend(String itemCode, int days) {
+        itemService.getItem(itemCode);
         int resolvedDays = Math.max(days, 1);
         LocalDate endDate = LocalDate.now();
         LocalDate startDate = endDate.minusDays(resolvedDays);
@@ -186,19 +182,20 @@ public class KamisPriceService {
 
     private KamisResponse requestDailyPrice(KamisRequest request) throws Exception {
         UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(baseUrl)
-                .queryParam("action", "dailyPriceByCategoryList")
+                .queryParam("action", "periodProductList")
                 .queryParam("p_cert_key", certKey)
                 .queryParam("p_cert_id", certId)
                 .queryParam("p_returntype", "json")
-                .queryParam("p_product_cls_code", request.productClsCode())
-                .queryParam("p_regday", request.regDate().format(KAMIS_DATE))
-                .queryParam("p_item_category_code", request.itemCategoryCode())
-                .queryParam("p_country_code", request.countryCode())
+                .queryParam("p_productclscode", request.productClsCode())
+                .queryParam("p_startday", request.regDate().format(KAMIS_DATE))
+                .queryParam("p_endday", request.regDate().format(KAMIS_DATE))
+                .queryParam("p_itemcategorycode", request.itemCategoryCode())
+                .queryParam("p_countrycode", request.countryCode())
                 .queryParam("p_convert_kg_yn", request.convertKgYn());
 
-        addQueryParamIfPresent(uriBuilder, "p_item_code", request.kamisItemCode());
-        addQueryParamIfPresent(uriBuilder, "p_kind_code", request.kindCode());
-        addQueryParamIfPresent(uriBuilder, "p_product_rank_code", request.productRankCode());
+        addQueryParamIfPresent(uriBuilder, "p_itemcode", request.kamisItemCode());
+        addQueryParamIfPresent(uriBuilder, "p_kindcode", request.kindCode());
+        addQueryParamIfPresent(uriBuilder, "p_productrankcode", request.productRankCode());
 
         URI uri = uriBuilder.build(true).toUri();
         String body = webClientBuilder.build()
@@ -315,9 +312,18 @@ public class KamisPriceService {
         String itemName = defaultIfBlank(request.internalItemName(), responseItemName);
         String unit = firstText(node, "unit", "unit_name", "unitName");
         String marketType = firstText(node, "market_type", "marketType", "product_cls_name", "productclscode", "countyname");
-        String kamisItemCode = firstText(node, "item_code", "itemcode", "itemCode");
-        String kamisKindCode = firstText(node, "kind_code", "kindcode", "kindCode");
-        String kamisRankCode = firstText(node, "rank_code", "rankcode", "rankCode");
+        String kamisItemCode = defaultIfBlank(
+                firstText(node, "item_code", "itemcode", "itemCode"),
+                request.kamisItemCode()
+        );
+        String kamisKindCode = defaultIfBlank(
+                firstText(node, "kind_code", "kindcode", "kindCode"),
+                request.kindCode()
+        );
+        String kamisRankCode = defaultIfBlank(
+                firstText(node, "rank_code", "rankcode", "rankCode"),
+                request.productRankCode()
+        );
 
         return new KamisPriceRow(
                 request.internalItemCode(),
@@ -449,7 +455,7 @@ public class KamisPriceService {
     }
 
     private KamisRequest resolveRequest(
-            String itemCode,
+            Item item,
             LocalDate regDate,
             String productClsCode,
             String itemCategoryCode,
@@ -460,16 +466,14 @@ public class KamisPriceService {
             String convertKgYn
     ) {
         LocalDate resolvedRegDate = regDate == null ? LocalDate.now() : regDate;
-        KamisItemMapping mapping = KAMIS_ITEMS.get(itemCode);
-
         return new KamisRequest(
-                itemCode,
-                mapping == null ? null : mapping.itemName(),
+                item.getItemCode(),
+                item.getItemName(),
                 resolvedRegDate,
                 defaultIfBlank(productClsCode, "01"),
-                defaultIfBlank(itemCategoryCode, mapping == null ? null : mapping.categoryCode()),
-                defaultIfBlank(kamisItemCode, mapping == null ? null : mapping.itemCode()),
-                defaultIfBlank(kindCode, mapping == null ? null : mapping.kindCode()),
+                defaultIfBlank(itemCategoryCode, item.getKamisCategoryCode()),
+                defaultIfBlank(kamisItemCode, item.getKamisItemCode()),
+                defaultIfBlank(kindCode, item.getKamisKindCode()),
                 productRankCode,
                 defaultIfBlank(countryCode, "1101"),
                 defaultIfBlank(convertKgYn, "Y")
@@ -502,14 +506,6 @@ public class KamisPriceService {
             String productRankCode,
             String countryCode,
             String convertKgYn
-    ) {
-    }
-
-    private record KamisItemMapping(
-            String itemName,
-            String categoryCode,
-            String itemCode,
-            String kindCode
     ) {
     }
 

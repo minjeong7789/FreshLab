@@ -6,7 +6,6 @@ import com.freshlab.freshdoctor.domain.Item;
 import com.freshlab.freshdoctor.domain.NewsArticle;
 import com.freshlab.freshdoctor.dto.NewsCollectResult;
 import com.freshlab.freshdoctor.dto.NewsResponse;
-import com.freshlab.freshdoctor.repository.ItemRepository;
 import com.freshlab.freshdoctor.repository.NewsArticleRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -42,8 +41,8 @@ public class NaverNewsService {
 
     private final WebClient.Builder webClientBuilder;
     private final ObjectMapper objectMapper;
-    private final ItemRepository itemRepository;
     private final NewsArticleRepository newsArticleRepository;
+    private final ItemService itemService;
 
     @Value("${naver.news.url:https://openapi.naver.com/v1/search/news.json}")
     private String newsUrl;
@@ -56,8 +55,9 @@ public class NaverNewsService {
 
     @Transactional
     public NewsCollectResult collectNews(String itemCode, String query, int display) {
+        Item item = itemService.getItem(itemCode);
         try {
-            String resolvedQuery = resolveQuery(itemCode, query);
+            String resolvedQuery = resolveQuery(item, query);
             int resolvedDisplay = Math.min(Math.max(display, 1), 100);
             JsonNode root = requestNews(resolvedQuery, resolvedDisplay);
             JsonNode items = root.path("items");
@@ -67,9 +67,9 @@ public class NaverNewsService {
 
             int fetchedCount = 0;
             int savedCount = 0;
-            for (JsonNode item : items) {
+            for (JsonNode newsItem : items) {
                 fetchedCount++;
-                if (saveOrUpdate(itemCode, resolvedQuery, item)) {
+                if (saveOrUpdate(itemCode, resolvedQuery, newsItem)) {
                     savedCount++;
                 }
             }
@@ -82,6 +82,7 @@ public class NaverNewsService {
 
     @Transactional(readOnly = true)
     public List<NewsResponse> getNews(String itemCode) {
+        itemService.getItem(itemCode);
         return newsArticleRepository.findTop20ByItemCodeOrderByPublishedAtDescCreatedAtDesc(itemCode)
                 .stream()
                 .map(NewsResponse::from)
@@ -195,16 +196,15 @@ public class NaverNewsService {
         }
     }
 
-    private String resolveQuery(String itemCode, String query) {
+    private String resolveQuery(Item item, String query) {
         if (!isBlank(query)) {
             return query;
         }
 
-        return itemRepository.findById(itemCode)
-                .map(Item::getItemName)
-                .filter(name -> !name.isBlank())
-                .map(name -> name + " 가격")
-                .orElse(itemCode + " 가격");
+        if (!isBlank(item.getNewsKeyword())) {
+            return item.getNewsKeyword();
+        }
+        return item.getItemName() + " 가격";
     }
 
     private Integer calculateRiskScore(String text) {
