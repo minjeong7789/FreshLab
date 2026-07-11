@@ -6,7 +6,6 @@ import com.freshlab.freshdoctor.domain.Item;
 import com.freshlab.freshdoctor.domain.WeatherData;
 import com.freshlab.freshdoctor.dto.WeatherCollectResult;
 import com.freshlab.freshdoctor.dto.WeatherResponse;
-import com.freshlab.freshdoctor.repository.ItemRepository;
 import com.freshlab.freshdoctor.repository.WeatherDataRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -35,8 +34,8 @@ public class WeatherService {
 
     private final WebClient.Builder webClientBuilder;
     private final ObjectMapper objectMapper;
-    private final ItemRepository itemRepository;
     private final WeatherDataRepository weatherDataRepository;
+    private final ItemService itemService;
 
     @Value("${weather.api.url:https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0}")
     private String baseUrl;
@@ -54,9 +53,9 @@ public class WeatherService {
             String region
     ) {
         String resultRegion = region;
+        Item item = itemService.getItem(itemCode);
 
         try {
-            Item item = itemRepository.findById(itemCode).orElse(null);
             int resolvedNx = resolveNx(item, nx);
             int resolvedNy = resolveNy(item, ny);
             String resolvedRegion = resolveRegion(item, region);
@@ -83,6 +82,7 @@ public class WeatherService {
 
     @Transactional(readOnly = true)
     public List<WeatherResponse> getForecasts(String itemCode, LocalDate startDate, LocalDate endDate) {
+        itemService.getItem(itemCode);
         LocalDate resolvedEndDate = endDate == null ? LocalDate.now().plusDays(3) : endDate;
         LocalDate resolvedStartDate = startDate == null ? LocalDate.now() : startDate;
 
@@ -223,7 +223,7 @@ public class WeatherService {
         if (item != null && item.getWeatherNx() != null) {
             return item.getWeatherNx();
         }
-        return 58;
+        throw new IllegalStateException("Weather nx is not configured for item: " + item.getItemCode());
     }
 
     private int resolveNy(Item item, Integer ny) {
@@ -233,7 +233,7 @@ public class WeatherService {
         if (item != null && item.getWeatherNy() != null) {
             return item.getWeatherNy();
         }
-        return 74;
+        throw new IllegalStateException("Weather ny is not configured for item: " + item.getItemCode());
     }
 
     private String resolveRegion(Item item, String region) {
@@ -246,7 +246,7 @@ public class WeatherService {
         if (item != null && !isBlank(item.getOriginRegion())) {
             return item.getOriginRegion();
         }
-        return "광주";
+        throw new IllegalStateException("Weather region is not configured for item: " + item.getItemCode());
     }
 
     private ForecastBase latestForecastBase() {
