@@ -6,6 +6,7 @@ import com.freshlab.freshdoctor.domain.PriceHistory;
 import com.freshlab.freshdoctor.domain.Item;
 import com.freshlab.freshdoctor.dto.CurrentPriceResponse;
 import com.freshlab.freshdoctor.dto.KamisPriceCollectResult;
+import com.freshlab.freshdoctor.dto.PriceChangeResponse;
 import com.freshlab.freshdoctor.dto.PricePointResponse;
 import com.freshlab.freshdoctor.dto.PriceResponse;
 import com.freshlab.freshdoctor.dto.PriceTrendResponse;
@@ -41,6 +42,7 @@ public class KamisPriceService {
     private final ItemService itemService;
     private final PriceValueNormalizer priceValueNormalizer;
     private final PriceDateRangeResolver priceDateRangeResolver;
+    private final PriceIncreaseRateCalculator priceIncreaseRateCalculator;
 
     @Value("${kamis.api.base-url:https://www.kamis.or.kr/service/price/xml.do}")
     private String baseUrl;
@@ -205,6 +207,8 @@ public class KamisPriceService {
                 .map(PriceHistory::getNormalYearPrice)
                 .orElse(null);
 
+        PriceChangeResponse priceChange = getRecentSevenPriceChange(item);
+
         LocalDateTime lastUpdatedAt = relevantActualPrices.stream()
                 .map(PriceHistory::getUpdatedAt)
                 .filter(java.util.Objects::nonNull)
@@ -216,8 +220,32 @@ public class KamisPriceService {
                 item.getItemName(),
                 current,
                 normalPrice,
+                priceChange,
                 lastUpdatedAt,
                 trend
+        );
+    }
+
+    private PriceChangeResponse getRecentSevenPriceChange(Item item) {
+        List<PriceHistory> recentPrices = priceHistoryRepository
+                .findTop7ByItemCodeAndMarketTypeAndKamisRankCodeAndUnitOrderByPriceDateDesc(
+                        item.getItemCode(),
+                        item.getDefaultMarketType(),
+                        item.getDefaultRankCode(),
+                        item.getDefaultUnit()
+                );
+
+        if (recentPrices.size() < 7) {
+            return null;
+        }
+
+        PriceHistory latest = recentPrices.get(0);
+        PriceHistory previous = recentPrices.get(recentPrices.size() - 1);
+        return priceIncreaseRateCalculator.calculate(
+                previous.getPrice(),
+                previous.getPriceDate(),
+                latest.getPrice(),
+                latest.getPriceDate()
         );
     }
 

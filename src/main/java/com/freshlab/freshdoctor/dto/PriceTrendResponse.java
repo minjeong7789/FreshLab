@@ -8,6 +8,7 @@ public record PriceTrendResponse(
         String itemName,
         CurrentPriceResponse current,
         Integer normalPrice,
+        PriceChangeResponse priceChange,
         LocalDateTime lastUpdatedAt,
         List<PricePointResponse> prices
 ) {
