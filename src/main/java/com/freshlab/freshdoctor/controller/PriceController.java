@@ -2,6 +2,7 @@ package com.freshlab.freshdoctor.controller;
 
 import com.freshlab.freshdoctor.dto.KamisPriceCollectResult;
 import com.freshlab.freshdoctor.dto.PriceResponse;
+import com.freshlab.freshdoctor.dto.PriceTrendResponse;
 import com.freshlab.freshdoctor.service.KamisPriceService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -76,7 +77,7 @@ public class PriceController {
     }
 
     @GetMapping("/{itemCode}/trend")
-    public List<PriceResponse> getPriceTrend(
+    public PriceTrendResponse getPriceTrend(
             @PathVariable String itemCode,
             @RequestParam(defaultValue = "30") int days
     ) {

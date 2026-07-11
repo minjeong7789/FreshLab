@@ -40,6 +40,9 @@ public class ItemDataInitializer implements CommandLineRunner {
             item.setKamisKindCode(kindCode);
             item.setUnit(unit);
             item.setGrade(grade);
+            item.setDefaultMarketType("소매");
+            item.setDefaultRankCode("04");
+            item.setDefaultUnit(unit);
             item.setWeatherRegion(region);
             item.setWeatherNx(nx);
             item.setWeatherNy(ny);

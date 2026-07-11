@@ -10,6 +10,9 @@ public record ItemResponse(
         String kamisKindCode,
         String unit,
         String grade,
+        String defaultMarketType,
+        String defaultRankCode,
+        String defaultUnit,
         String weatherRegion,
         Integer weatherNx,
         Integer weatherNy,
@@ -19,6 +22,7 @@ public record ItemResponse(
         return new ItemResponse(
                 item.getItemCode(), item.getItemName(), item.getKamisCategoryCode(),
                 item.getKamisItemCode(), item.getKamisKindCode(), item.getUnit(), item.getGrade(),
+                item.getDefaultMarketType(), item.getDefaultRankCode(), item.getDefaultUnit(),
                 item.getWeatherRegion(), item.getWeatherNx(), item.getWeatherNy(), item.getNewsKeyword()
         );
     }
