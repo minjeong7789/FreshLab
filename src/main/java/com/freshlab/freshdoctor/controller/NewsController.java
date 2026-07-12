@@ -33,4 +33,9 @@ public class NewsController {
     public List<NewsResponse> getNews(@PathVariable String itemCode) {
         return naverNewsService.getNews(itemCode);
     }
+
+    @GetMapping("/{itemCode}/representative-risk")
+    public NewsResponse getRepresentativeRiskNews(@PathVariable String itemCode) {
+        return naverNewsService.getRepresentativeRiskNews(itemCode);
+    }
 }
