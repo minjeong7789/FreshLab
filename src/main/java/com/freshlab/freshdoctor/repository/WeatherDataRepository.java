@@ -17,6 +17,11 @@ public interface WeatherDataRepository extends JpaRepository<WeatherData, Long> 
 
     List<WeatherData> findTop100ByItemCodeOrderByForecastDateDescForecastTimeDesc(String itemCode);
 
+    List<WeatherData> findTop100ByItemCodeAndRegionOrderByForecastDateDescForecastTimeDesc(
+            String itemCode,
+            String region
+    );
+
     Optional<WeatherData> findByItemCodeAndRegionAndForecastDateAndForecastTimeAndCategory(
             String itemCode,
             String region,
