@@ -1,7 +1,9 @@
 package com.freshlab.freshdoctor.controller;
 
 import com.freshlab.freshdoctor.dto.WeatherCollectResult;
+import com.freshlab.freshdoctor.dto.WeatherRiskResponse;
 import com.freshlab.freshdoctor.dto.WeatherResponse;
+import com.freshlab.freshdoctor.service.WeatherRiskService;
 import com.freshlab.freshdoctor.service.WeatherService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -21,6 +23,7 @@ import java.util.List;
 public class WeatherController {
 
     private final WeatherService weatherService;
+    private final WeatherRiskService weatherRiskService;
 
     @PostMapping("/collect/{itemCode}")
     public WeatherCollectResult collectForecast(
@@ -44,8 +47,13 @@ public class WeatherController {
             LocalDate startDate,
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-            LocalDate endDate
+                LocalDate endDate
     ) {
         return weatherService.getForecasts(itemCode, startDate, endDate);
+    }
+
+    @GetMapping("/risk/{itemCode}")
+    public WeatherRiskResponse getWeatherRisk(@PathVariable String itemCode) {
+        return weatherRiskService.calculateRisk(itemCode);
     }
 }
