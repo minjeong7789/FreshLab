@@ -16,6 +16,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class RiskScoreService {
 
+    private static final int RAW_SCORE_MAX = 85;
     private static final int MAX_FINAL_SCORE = 100;
 
     private final RiskScoreRepository riskScoreRepository;
@@ -74,7 +75,7 @@ public class RiskScoreService {
                 request.weatherScore(),
                 request.newsScore()
         );
-        int finalScore = Math.min(rawScore, MAX_FINAL_SCORE);
+        int finalScore = normalize(rawScore);
         RiskGrade riskGrade = resolveRiskGrade(finalScore);
 
         riskScore.setItemCode(request.itemCode());
@@ -126,6 +127,14 @@ public class RiskScoreService {
             }
         }
         return total;
+    }
+
+    private int normalize(int rawScore) {
+        if (rawScore <= 0) {
+            return 0;
+        }
+        int normalized = (int) Math.round(rawScore * (double) MAX_FINAL_SCORE / RAW_SCORE_MAX);
+        return Math.min(normalized, MAX_FINAL_SCORE);
     }
 
     private RiskGrade resolveRiskGrade(int finalScore) {

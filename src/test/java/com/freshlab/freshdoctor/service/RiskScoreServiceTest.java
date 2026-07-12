@@ -39,8 +39,8 @@ class RiskScoreServiceTest {
         assertThat(response.itemCode()).isEqualTo("1001");
         assertThat(response.scoreDate()).isEqualTo(LocalDate.of(2026, 7, 20));
         assertThat(response.rawScore()).isEqualTo(60);
-        assertThat(response.finalScore()).isEqualTo(60);
-        assertThat(response.riskGrade()).isEqualTo("CAUTION");
+        assertThat(response.finalScore()).isEqualTo(71);
+        assertThat(response.riskGrade()).isEqualTo("ALERT");
     }
 
     @Test
@@ -63,7 +63,7 @@ class RiskScoreServiceTest {
         verify(riskScoreRepository).save(same(existing));
         assertThat(response.id()).isEqualTo(1L);
         assertThat(response.priceIncreaseScore()).isEqualTo(20);
-        assertThat(response.finalScore()).isEqualTo(70);
+        assertThat(response.finalScore()).isEqualTo(82);
         assertThat(response.riskGrade()).isEqualTo("ALERT");
     }
 
