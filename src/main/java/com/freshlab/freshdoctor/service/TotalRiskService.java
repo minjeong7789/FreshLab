@@ -43,13 +43,7 @@ public class TotalRiskService {
         List<String> unavailableItems = new ArrayList<>();
         List<String> unavailableReasons = new ArrayList<>();
 
-        List<PriceHistory> recentPrices = priceHistoryRepository
-                .findTop60ByItemCodeAndMarketTypeAndKamisRankCodeAndUnitOrderByPriceDateDesc(
-                        itemCode,
-                        item.getDefaultMarketType(),
-                        item.getDefaultRankCode(),
-                        item.getDefaultUnit()
-                );
+        List<PriceHistory> recentPrices = findRecentPrices(item);
 
         PriceChangeResponse priceChange = calculatePriceChange(recentPrices, unavailableItems, unavailableReasons);
         NormalYearPriceComparison normalYearComparison = calculateNormalYearComparison(
@@ -133,6 +127,20 @@ public class TotalRiskService {
                 latest.getPrice(),
                 latest.getPriceDate()
         );
+    }
+
+    private List<PriceHistory> findRecentPrices(Item item) {
+        List<PriceHistory> strictPrices = priceHistoryRepository
+                .findTop60ByItemCodeAndMarketTypeAndKamisRankCodeAndUnitOrderByPriceDateDesc(
+                        item.getItemCode(),
+                        item.getDefaultMarketType(),
+                        item.getDefaultRankCode(),
+                        item.getDefaultUnit()
+                );
+        if (strictPrices.size() >= 7) {
+            return strictPrices;
+        }
+        return priceHistoryRepository.findTop60ByItemCodeOrderByPriceDateDesc(item.getItemCode());
     }
 
     private NormalYearPriceComparison calculateNormalYearComparison(

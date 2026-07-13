@@ -27,6 +27,18 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse("INVALID_PRICE_PERIOD", exception.getMessage()));
     }
 
+    @ExceptionHandler(RiskScoreNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleRiskScoreNotFound(RiskScoreNotFoundException exception) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ErrorResponse("RISK_SCORE_NOT_FOUND", exception.getMessage()));
+    }
+
+    @ExceptionHandler(RecommendationNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleRecommendationNotFound(RecommendationNotFoundException exception) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ErrorResponse("RECOMMENDATION_NOT_FOUND", exception.getMessage()));
+    }
+
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ErrorResponse> handleMethodArgumentTypeMismatch(
             MethodArgumentTypeMismatchException exception
