@@ -62,6 +62,13 @@ public interface PriceHistoryRepository extends JpaRepository<PriceHistory, Long
 
     Optional<PriceHistory> findTopByItemCodeOrderByPriceDateDesc(String itemCode);
 
+    Optional<PriceHistory> findTopByItemCodeAndMarketTypeAndKamisRankCodeAndUnitOrderByPriceDateDesc(
+            String itemCode,
+            String marketType,
+            String kamisRankCode,
+            String unit
+    );
+
     @Modifying
     @Query(value = """
             INSERT INTO price_history (
