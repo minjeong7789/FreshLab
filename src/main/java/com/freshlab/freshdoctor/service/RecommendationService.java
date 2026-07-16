@@ -119,11 +119,11 @@ public class RecommendationService {
 
     private String fallbackMessage(RecommendationInput input) {
         String itemName = input.itemName();
-        String grade = input.riskGrade() == null ? "STABLE" : input.riskGrade();
+        String grade = input.riskGrade() == null ? "SAFE" : input.riskGrade();
         boolean hasWeatherIssue = input.weatherIssue() != null && !input.weatherIssue().isBlank();
         boolean hasNewsIssue = input.newsIssue() != null && !input.newsIssue().isBlank();
 
-        if ("SEVERE".equals(grade) || "ALERT".equals(grade)) {
+        if ("CRITICAL".equals(grade) || "ALERT".equals(grade)) {
             return "현재 " + itemName + " 발주 위험이 높으니 당일 필요 물량 위주로 줄이고 대체 품목을 함께 확인하세요. "
                     + fallbackIssueSentence(hasWeatherIssue, hasNewsIssue);
         }
@@ -131,7 +131,7 @@ public class RecommendationService {
             return "현재 " + itemName + " 가격과 수급 변화를 한 번 더 확인한 뒤 평소보다 보수적으로 발주하세요. "
                     + fallbackIssueSentence(hasWeatherIssue, hasNewsIssue);
         }
-        if ("WATCH".equals(grade)) {
+        if ("INTEREST".equals(grade)) {
             return "현재 " + itemName + "은 큰 위험은 아니지만 최근 변동 신호가 있으니 다음 발주 전 가격을 재확인하세요.";
         }
         if (hasWeatherIssue || hasNewsIssue) {
@@ -155,11 +155,11 @@ public class RecommendationService {
 
     private String fallback(RecommendationInput input) {
         String itemName = input.itemName();
-        String grade = input.riskGrade() == null ? "STABLE" : input.riskGrade();
+        String grade = input.riskGrade() == null ? "SAFE" : input.riskGrade();
         boolean hasWeatherIssue = input.weatherIssue() != null && !input.weatherIssue().isBlank();
         boolean hasNewsIssue = input.newsIssue() != null && !input.newsIssue().isBlank();
 
-        if ("SEVERE".equals(grade) || "ALERT".equals(grade)) {
+        if ("CRITICAL".equals(grade) || "ALERT".equals(grade)) {
             return itemName + "은 현재 발주 위험이 높으니 당일 필요 물량 위주로 줄이고 대체 품목을 함께 확인하세요. "
                     + issueSentence(hasWeatherIssue, hasNewsIssue);
         }
@@ -167,7 +167,7 @@ public class RecommendationService {
             return itemName + "은 가격과 수급 변화를 한 번 더 확인한 뒤 평소보다 보수적으로 발주하세요. "
                     + issueSentence(hasWeatherIssue, hasNewsIssue);
         }
-        if ("WATCH".equals(grade)) {
+        if ("INTEREST".equals(grade)) {
             return itemName + "은 큰 위험은 아니지만 최근 변동 신호가 있으니 다음 발주 전 가격을 재확인하세요.";
         }
         return itemName + "은 현재 위험도가 낮아 평소 발주 기준을 유지해도 됩니다.";

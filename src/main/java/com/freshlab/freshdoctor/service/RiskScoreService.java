@@ -138,19 +138,7 @@ public class RiskScoreService {
     }
 
     private RiskGrade resolveRiskGrade(int finalScore) {
-        if (finalScore >= 85) {
-            return RiskGrade.SEVERE;
-        }
-        if (finalScore >= 70) {
-            return RiskGrade.ALERT;
-        }
-        if (finalScore >= 50) {
-            return RiskGrade.CAUTION;
-        }
-        if (finalScore >= 30) {
-            return RiskGrade.WATCH;
-        }
-        return RiskGrade.STABLE;
+        return RiskGrade.fromScore(finalScore);
     }
 
     private void validate(RiskScoreUpsertRequest request) {

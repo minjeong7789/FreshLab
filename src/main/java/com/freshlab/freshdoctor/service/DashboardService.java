@@ -47,7 +47,7 @@ public class DashboardService {
         String todayGrade = resolveRiskGrade(todayScore).name();
 
         List<DashboardTopRiskItemResponse> topRiskItems = dashboardItems.stream()
-                .filter(item -> item.finalScore() != null && item.finalScore() >= 50)
+                .filter(item -> item.finalScore() != null && item.finalScore() >= 41)
                 .limit(2)
                 .map(item -> new DashboardTopRiskItemResponse(
                         item.itemCode(),
@@ -93,7 +93,7 @@ public class DashboardService {
                 latestPrice == null ? item.getDefaultUnit() : latestPrice.getUnit(),
                 riskScore == null ? null : riskScore.priceIncreaseRate(),
                 riskScore == null ? null : riskScore.finalScore(),
-                riskScore == null ? RiskGrade.STABLE.name() : riskScore.riskGrade(),
+                riskScore == null ? RiskGrade.SAFE.name() : riskScore.riskGrade(),
                 resolveDataDate(riskScore, latestPrice),
                 resolveUpdatedAt(riskScore, latestPrice)
         );
@@ -126,11 +126,11 @@ public class DashboardService {
 
     private DashboardGradeCountsResponse countGrades(List<DashboardItem> items) {
         return new DashboardGradeCountsResponse(
-                countGrade(items, RiskGrade.STABLE),
-                countGrade(items, RiskGrade.WATCH),
+                countGrade(items, RiskGrade.SAFE),
+                countGrade(items, RiskGrade.INTEREST),
                 countGrade(items, RiskGrade.CAUTION),
                 countGrade(items, RiskGrade.ALERT),
-                countGrade(items, RiskGrade.SEVERE)
+                countGrade(items, RiskGrade.CRITICAL)
         );
     }
 
@@ -155,11 +155,11 @@ public class DashboardService {
     private String buildRecommendation(String todayGrade) {
         RiskGrade grade = RiskGrade.valueOf(todayGrade);
         return switch (grade) {
-            case SEVERE -> "즉시 재고를 점검하고 선발주 또는 대체 품목을 검토하세요.";
+            case CRITICAL -> "즉시 재고를 점검하고 선발주 또는 대체 품목을 검토하세요.";
             case ALERT -> "발주량을 보수적으로 조정하고 가격 변동을 다시 확인하세요.";
             case CAUTION -> "일괄 발주보다 분할 발주를 고려하세요.";
-            case WATCH -> "가격과 수급 추이를 관찰하세요.";
-            case STABLE -> "평소 발주 계획을 유지해도 무리가 적습니다.";
+            case INTEREST -> "가격과 수급 추이를 관찰하세요.";
+            case SAFE -> "평소 발주 계획을 유지해도 무리가 적습니다.";
         };
     }
 
@@ -180,19 +180,7 @@ public class DashboardService {
     }
 
     private RiskGrade resolveRiskGrade(int finalScore) {
-        if (finalScore >= 85) {
-            return RiskGrade.SEVERE;
-        }
-        if (finalScore >= 70) {
-            return RiskGrade.ALERT;
-        }
-        if (finalScore >= 50) {
-            return RiskGrade.CAUTION;
-        }
-        if (finalScore >= 30) {
-            return RiskGrade.WATCH;
-        }
-        return RiskGrade.STABLE;
+        return RiskGrade.fromScore(finalScore);
     }
 
     private record DashboardItem(

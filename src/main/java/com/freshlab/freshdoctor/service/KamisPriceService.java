@@ -20,6 +20,8 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -29,6 +31,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -92,9 +95,30 @@ public class KamisPriceService {
                     countryCode,
                     convertKgYn
             );
-            KamisResponse response = requestDailyPrice(request);
-            List<KamisPriceRow> rows = new ArrayList<>();
-            collectRows(response.root(), request, rows);
+            KamisResponse response = requestPeriodPrices(request);
+            List<KamisPriceRow> rawRows = new ArrayList<>();
+            collectPeriodRows(response.root(), request, rawRows);
+            List<KamisPriceRow> rows = aggregateDailyPrices(rawRows);
+
+            NormalYearPrice normalYearPrice;
+            try {
+                normalYearPrice = requestNormalYearPrice(request);
+            } catch (Exception ignored) {
+                normalYearPrice = null;
+            }
+            if (normalYearPrice != null && !rows.isEmpty()) {
+                String sourceUnit = normalYearPrice.unit();
+                rows = rows.stream()
+                        .map(row -> convertRowUnit(row, sourceUnit, request.unit()))
+                        .filter(Objects::nonNull)
+                        .toList();
+                Integer convertedNormalYearPrice = convertPriceUnit(
+                        normalYearPrice.price(), sourceUnit, request.unit()
+                );
+                rows = new ArrayList<>(rows);
+                int latestIndex = rows.size() - 1;
+                rows.set(latestIndex, rows.get(latestIndex).withNormalYearPrice(convertedNormalYearPrice));
+            }
 
             if (rows.isEmpty()) {
                 return new KamisPriceCollectResult(
@@ -241,6 +265,10 @@ public class KamisPriceService {
 
         PriceHistory latest = recentPrices.get(0);
         PriceHistory previous = recentPrices.get(recentPrices.size() - 1);
+        if (previous.getPrice() == null || previous.getPrice() <= 0
+                || latest.getPrice() == null || latest.getPrice() <= 0) {
+            return null;
+        }
         return priceIncreaseRateCalculator.calculate(
                 previous.getPrice(),
                 previous.getPriceDate(),
@@ -298,23 +326,48 @@ public class KamisPriceService {
                 .toList();
     }
 
-    private KamisResponse requestDailyPrice(KamisRequest request) throws Exception {
+    private KamisResponse requestPeriodPrices(KamisRequest request) throws Exception {
         UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(baseUrl)
                 .queryParam("action", "periodProductList")
                 .queryParam("p_cert_key", certKey)
                 .queryParam("p_cert_id", certId)
                 .queryParam("p_returntype", "json")
                 .queryParam("p_productclscode", request.productClsCode())
-                .queryParam("p_startday", request.regDate().format(KAMIS_DATE))
+                .queryParam("p_startday", request.regDate().minusDays(29).format(KAMIS_DATE))
                 .queryParam("p_endday", request.regDate().format(KAMIS_DATE))
                 .queryParam("p_itemcategorycode", request.itemCategoryCode())
                 .queryParam("p_countrycode", request.countryCode())
-                .queryParam("p_convert_kg_yn", request.convertKgYn());
+                .queryParam("p_convert_kg_yn", "N");
 
         addQueryParamIfPresent(uriBuilder, "p_itemcode", request.kamisItemCode());
         addQueryParamIfPresent(uriBuilder, "p_kindcode", request.kindCode());
         addQueryParamIfPresent(uriBuilder, "p_productrankcode", request.productRankCode());
 
+        return request(uriBuilder);
+    }
+
+    private NormalYearPrice requestNormalYearPrice(KamisRequest request) throws Exception {
+        UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromUriString(baseUrl)
+                .queryParam("action", "dailyPriceByCategoryList")
+                .queryParam("p_cert_key", certKey)
+                .queryParam("p_cert_id", certId)
+                .queryParam("p_returntype", "json")
+                .queryParam("p_product_cls_code", request.productClsCode())
+                .queryParam("p_item_category_code", request.itemCategoryCode())
+                .queryParam("p_country_code", request.countryCode())
+                .queryParam("p_regday", request.regDate().format(KAMIS_DATE))
+                .queryParam("p_convert_kg_yn", "N");
+
+        KamisResponse response = request(uriBuilder);
+        return findNormalYearPriceRow(
+                response.root(),
+                request.kamisItemCode(),
+                request.kindCode(),
+                request.productRankCode()
+        );
+    }
+
+    private KamisResponse request(UriComponentsBuilder uriBuilder) throws Exception {
         URI uri = uriBuilder.build(true).toUri();
         String body = webClientBuilder.build()
                 .get()
@@ -349,22 +402,28 @@ public class KamisPriceService {
         String marketType = defaultIfBlank(row.marketType(), "UNKNOWN");
         String rankCode = defaultIfBlank(row.kamisRankCode(), "UNKNOWN");
 
-        priceHistoryRepository.upsert(
-                row.itemCode(),
-                row.itemName(),
-                row.kamisItemCode(),
-                row.kamisKindCode(),
-                rankCode,
-                row.priceDate(),
-                row.price(),
-                row.normalYearPrice(),
-                unit,
-                marketType,
-                LocalDateTime.now()
-        );
+        List<PriceHistory> existingRows = priceHistoryRepository
+                .findByItemCodeAndPriceDateOrderByIdAsc(row.itemCode(), row.priceDate());
+        PriceHistory history = existingRows.isEmpty() ? new PriceHistory() : existingRows.get(0);
+        if (existingRows.size() > 1) {
+            priceHistoryRepository.deleteAll(existingRows.subList(1, existingRows.size()));
+        }
+        history.setItemCode(row.itemCode());
+        history.setItemName(row.itemName());
+        history.setKamisItemCode(row.kamisItemCode());
+        history.setKamisKindCode(row.kamisKindCode());
+        history.setKamisRankCode(rankCode);
+        history.setPriceDate(row.priceDate());
+        history.setPrice(row.price());
+        if (row.normalYearPrice() != null) {
+            history.setNormalYearPrice(row.normalYearPrice());
+        }
+        history.setUnit(unit);
+        history.setMarketType(marketType);
+        priceHistoryRepository.save(history);
     }
 
-    private void collectRows(JsonNode node, KamisRequest request, List<KamisPriceRow> rows) {
+    private void collectPeriodRows(JsonNode node, KamisRequest request, List<KamisPriceRow> rows) {
         if (node == null || node.isNull()) {
             return;
         }
@@ -372,104 +431,183 @@ public class KamisPriceService {
         if (node.isTextual()) {
             JsonNode parsedTextNode = parseJsonTextNode(node.asText());
             if (parsedTextNode != null) {
-                collectRows(parsedTextNode, request, rows);
+                collectPeriodRows(parsedTextNode, request, rows);
             }
             return;
         }
 
         if (node.isObject()) {
-            KamisPriceRow row = toRow(node, request);
+            KamisPriceRow row = toPeriodRow(node, request);
             if (row != null) {
                 rows.add(row);
             }
 
             Iterator<JsonNode> children = node.elements();
             while (children.hasNext()) {
-                collectRows(children.next(), request, rows);
+                collectPeriodRows(children.next(), request, rows);
             }
             return;
         }
 
         if (node.isArray()) {
             for (JsonNode child : node) {
-                collectRows(child, request, rows);
+                collectPeriodRows(child, request, rows);
             }
         }
     }
 
-    private KamisPriceRow toRow(JsonNode node, KamisRequest request) {
-        PriceValue priceValue = firstPriceValue(node, request);
-        LocalDate priceDate = priceValue.priceDate();
-        Integer price = priceValue.price();
-        Integer normalYearPrice = priceValueNormalizer.normalize(firstText(node, "dpr7"));
-
-        if (priceDate == null) {
-            priceDate = request.regDate();
-        }
+    private KamisPriceRow toPeriodRow(JsonNode node, KamisRequest request) {
+        String responseItemName = firstText(node, "itemname");
+        Integer price = priceValueNormalizer.normalize(firstText(node, "price"));
+        LocalDate priceDate = parsePeriodDate(firstText(node, "yyyy"), firstText(node, "regday"));
         if (price == null) {
             return null;
         }
-
-        String responseItemName = firstText(
-                node,
-                "item_name",
-                "itemname",
-                "itemName",
-                "productName",
-                "product_name"
-        );
-        if (isBlank(responseItemName)) {
+        if (isBlank(responseItemName) || priceDate == null) {
             return null;
         }
         String itemName = defaultIfBlank(request.internalItemName(), responseItemName);
-        String unit = firstText(node, "unit", "unit_name", "unitName");
-        String marketType = firstText(node, "market_type", "marketType", "product_cls_name", "productclscode", "countyname");
-        String kamisItemCode = defaultIfBlank(
-                firstText(node, "item_code", "itemcode", "itemCode"),
-                request.kamisItemCode()
-        );
-        String kamisKindCode = defaultIfBlank(
-                firstText(node, "kind_code", "kindcode", "kindCode"),
-                request.kindCode()
-        );
-        String kamisRankCode = defaultIfBlank(
-                firstText(node, "rank_code", "rankcode", "rankCode"),
-                request.productRankCode()
-        );
 
         return new KamisPriceRow(
                 request.internalItemCode(),
                 itemName,
-                kamisItemCode,
-                kamisKindCode,
-                kamisRankCode,
+                request.kamisItemCode(),
+                request.kindCode(),
+                request.productRankCode(),
                 priceDate,
                 price,
-                normalYearPrice,
-                unit,
-                isBlank(marketType) ? "UNKNOWN" : marketType
+                null,
+                request.unit(),
+                request.marketType()
         );
     }
 
-    private PriceValue firstPriceValue(JsonNode node, KamisRequest request) {
-        String[][] dayPricePairs = {
-                {"day1", "dpr1"},
-                {"day2", "dpr2"},
-                {"day3", "dpr3"},
-                {"day4", "dpr4"}
-        };
+    private List<KamisPriceRow> aggregateDailyPrices(List<KamisPriceRow> rawRows) {
+        Map<LocalDate, List<KamisPriceRow>> rowsByDate = new LinkedHashMap<>();
+        rawRows.stream()
+                .sorted(Comparator.comparing(KamisPriceRow::priceDate))
+                .forEach(row -> rowsByDate.computeIfAbsent(row.priceDate(), ignored -> new ArrayList<>()).add(row));
 
-        for (String[] pair : dayPricePairs) {
-            Integer price = priceValueNormalizer.normalize(firstText(node, pair[1]));
-            if (price != null) {
-                LocalDate date = parseKamisDayLabel(firstText(node, pair[0]), request.regDate());
-                return new PriceValue(date, price);
+        List<KamisPriceRow> result = new ArrayList<>();
+        for (List<KamisPriceRow> dailyRows : rowsByDate.values()) {
+            List<Integer> prices = dailyRows.stream()
+                    .map(KamisPriceRow::price)
+                    .filter(Objects::nonNull)
+                    .sorted()
+                    .toList();
+            if (prices.isEmpty()) {
+                continue;
+            }
+            int middle = prices.size() / 2;
+            int representativePrice = prices.size() % 2 == 1
+                    ? prices.get(middle)
+                    : (int) Math.round((prices.get(middle - 1).longValue() + prices.get(middle).longValue()) / 2.0);
+            result.add(dailyRows.get(0).withPrice(representativePrice));
+        }
+        return result;
+    }
+
+    Integer findNormalYearPrice(JsonNode node, String requestedItemCode, String requestedKindCode, String requestedRankCode) {
+        NormalYearPrice row = findNormalYearPriceRow(
+                node, requestedItemCode, requestedKindCode, requestedRankCode
+        );
+        return row == null ? null : row.price();
+    }
+
+    private NormalYearPrice findNormalYearPriceRow(
+            JsonNode node,
+            String requestedItemCode,
+            String requestedKindCode,
+            String requestedRankCode
+    ) {
+        if (node == null || node.isNull()) {
+            return null;
+        }
+        if (node.isObject()) {
+            String itemCode = firstText(node, "itemcode", "item_code");
+            String kindCode = firstText(node, "kindcode", "kind_code");
+            String rankCode = firstText(node, "rankcode", "rank_code");
+            boolean itemMatches = isBlank(requestedItemCode) || requestedItemCode.equals(itemCode);
+            boolean kindMatches = isBlank(requestedKindCode) || isBlank(kindCode) || requestedKindCode.equals(kindCode);
+            boolean rankMatches = isBlank(requestedRankCode)
+                    || isBlank(rankCode)
+                    || requestedRankCode.equals(rankCode);
+            if (itemMatches && kindMatches && rankMatches) {
+                Integer normalYearPrice = priceValueNormalizer.normalize(firstText(node, "dpr7"));
+                if (normalYearPrice != null) {
+                    return new NormalYearPrice(normalYearPrice, firstText(node, "unit"));
+                }
+            }
+            Iterator<JsonNode> children = node.elements();
+            while (children.hasNext()) {
+                NormalYearPrice found = findNormalYearPriceRow(
+                        children.next(), requestedItemCode, requestedKindCode, requestedRankCode
+                );
+                if (found != null) {
+                    return found;
+                }
+            }
+        } else if (node.isArray()) {
+            for (JsonNode child : node) {
+                NormalYearPrice found = findNormalYearPriceRow(
+                        child, requestedItemCode, requestedKindCode, requestedRankCode
+                );
+                if (found != null) {
+                    return found;
+                }
             }
         }
+        return null;
+    }
 
-        LocalDate date = parseDate(firstText(node, "regday", "yyyy", "price_date", "date", "regDate"));
-        Integer price = priceValueNormalizer.normalize(firstText(node, "price", "avg_price", "avgPrice", "value"));
-        return new PriceValue(date, price);
+    Integer convertPriceUnit(Integer price, String sourceUnit, String targetUnit) {
+        if (price == null) {
+            return null;
+        }
+        if (Objects.equals(sourceUnit, targetUnit)) {
+            return price;
+        }
+        if (isBlank(sourceUnit) || isBlank(targetUnit)) {
+            return null;
+        }
+
+        Integer sourceGrams = weightInGrams(sourceUnit);
+        Integer targetGrams = weightInGrams(targetUnit);
+        if (sourceGrams == null || targetGrams == null) {
+            return null;
+        }
+        return BigDecimal.valueOf(price)
+                .multiply(BigDecimal.valueOf(targetGrams))
+                .divide(BigDecimal.valueOf(sourceGrams), 0, RoundingMode.HALF_UP)
+                .intValueExact();
+    }
+
+    private KamisPriceRow convertRowUnit(KamisPriceRow row, String sourceUnit, String targetUnit) {
+        Integer convertedPrice = convertPriceUnit(row.price(), sourceUnit, targetUnit);
+        return convertedPrice == null ? null : row.withPrice(convertedPrice);
+    }
+
+    private Integer weightInGrams(String unit) {
+        String normalized = unit.trim().toLowerCase().replace(" ", "");
+        if (normalized.matches("\\d+kg")) {
+            return Integer.parseInt(normalized.substring(0, normalized.length() - 2)) * 1_000;
+        }
+        if (normalized.matches("\\d+g")) {
+            return Integer.parseInt(normalized.substring(0, normalized.length() - 1));
+        }
+        return null;
+    }
+
+    private LocalDate parsePeriodDate(String year, String regday) {
+        LocalDate direct = parseDate(regday);
+        if (direct != null && !isBlank(regday) && regday.trim().matches("\\d{4}.*")) {
+            return direct;
+        }
+        if (isBlank(year) || isBlank(regday)) {
+            return direct;
+        }
+        String normalizedDay = regday.trim().replace('.', '-').replace('/', '-');
+        return parseDate(year.trim() + "-" + normalizedDay);
     }
 
     private JsonNode parseJsonTextNode(String value) {
@@ -527,24 +665,6 @@ public class KamisPriceService {
         }
     }
 
-    private LocalDate parseKamisDayLabel(String value, LocalDate fallbackDate) {
-        if (isBlank(value)) {
-            return fallbackDate;
-        }
-
-        int open = value.indexOf('(');
-        int close = value.indexOf(')');
-        if (open >= 0 && close > open) {
-            LocalDate parsedDate = parseDate(value.substring(open + 1, close));
-            if (parsedDate != null) {
-                return parsedDate;
-            }
-        }
-
-        LocalDate parsedDate = parseDate(value);
-        return parsedDate == null ? fallbackDate : parsedDate;
-    }
-
     private boolean isBlank(String value) {
         return value == null || value.isBlank();
     }
@@ -577,7 +697,9 @@ public class KamisPriceService {
                 defaultIfBlank(kindCode, item.getKamisKindCode()),
                 defaultIfBlank(productRankCode, item.getDefaultRankCode()),
                 defaultIfBlank(countryCode, "1101"),
-                defaultIfBlank(convertKgYn, "Y")
+                defaultIfBlank(convertKgYn, "Y"),
+                defaultIfBlank(item.getDefaultUnit(), "UNKNOWN"),
+                defaultIfBlank(item.getDefaultMarketType(), "UNKNOWN")
         );
     }
 
@@ -596,6 +718,9 @@ public class KamisPriceService {
     private record KamisResponse(JsonNode root, String preview) {
     }
 
+    private record NormalYearPrice(Integer price, String unit) {
+    }
+
     private record KamisRequest(
             String internalItemCode,
             String internalItemName,
@@ -606,11 +731,10 @@ public class KamisPriceService {
             String kindCode,
             String productRankCode,
             String countryCode,
-            String convertKgYn
+            String convertKgYn,
+            String unit,
+            String marketType
     ) {
-    }
-
-    private record PriceValue(LocalDate priceDate, Integer price) {
     }
 
     private record KamisPriceRow(
@@ -625,5 +749,14 @@ public class KamisPriceService {
             String unit,
             String marketType
     ) {
+        KamisPriceRow withPrice(int value) {
+            return new KamisPriceRow(itemCode, itemName, kamisItemCode, kamisKindCode, kamisRankCode,
+                    priceDate, value, normalYearPrice, unit, marketType);
+        }
+
+        KamisPriceRow withNormalYearPrice(int value) {
+            return new KamisPriceRow(itemCode, itemName, kamisItemCode, kamisKindCode, kamisRankCode,
+                    priceDate, price, value, unit, marketType);
+        }
     }
 }

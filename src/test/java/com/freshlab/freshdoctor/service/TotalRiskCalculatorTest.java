@@ -30,7 +30,7 @@ class TotalRiskCalculatorTest {
 
         assertThat(result.rawScore()).isEqualTo(85);
         assertThat(result.finalScore()).isEqualTo(100);
-        assertThat(result.riskGrade()).isEqualTo(RiskGrade.SEVERE);
+        assertThat(result.riskGrade()).isEqualTo(RiskGrade.CRITICAL);
     }
 
     @Test
@@ -45,11 +45,16 @@ class TotalRiskCalculatorTest {
 
     @Test
     void appliesFiveRiskGrades() {
-        assertThat(calculator.resolveRiskGrade(29)).isEqualTo(RiskGrade.STABLE);
-        assertThat(calculator.resolveRiskGrade(30)).isEqualTo(RiskGrade.WATCH);
-        assertThat(calculator.resolveRiskGrade(50)).isEqualTo(RiskGrade.CAUTION);
-        assertThat(calculator.resolveRiskGrade(70)).isEqualTo(RiskGrade.ALERT);
-        assertThat(calculator.resolveRiskGrade(85)).isEqualTo(RiskGrade.SEVERE);
+        assertThat(calculator.resolveRiskGrade(0)).isEqualTo(RiskGrade.SAFE);
+        assertThat(calculator.resolveRiskGrade(20)).isEqualTo(RiskGrade.SAFE);
+        assertThat(calculator.resolveRiskGrade(21)).isEqualTo(RiskGrade.INTEREST);
+        assertThat(calculator.resolveRiskGrade(40)).isEqualTo(RiskGrade.INTEREST);
+        assertThat(calculator.resolveRiskGrade(41)).isEqualTo(RiskGrade.CAUTION);
+        assertThat(calculator.resolveRiskGrade(60)).isEqualTo(RiskGrade.CAUTION);
+        assertThat(calculator.resolveRiskGrade(61)).isEqualTo(RiskGrade.ALERT);
+        assertThat(calculator.resolveRiskGrade(80)).isEqualTo(RiskGrade.ALERT);
+        assertThat(calculator.resolveRiskGrade(81)).isEqualTo(RiskGrade.CRITICAL);
+        assertThat(calculator.resolveRiskGrade(100)).isEqualTo(RiskGrade.CRITICAL);
     }
 
     @Test
