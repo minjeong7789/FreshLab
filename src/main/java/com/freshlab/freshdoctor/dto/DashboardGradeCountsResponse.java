@@ -1,10 +1,10 @@
 package com.freshlab.freshdoctor.dto;
 
 public record DashboardGradeCountsResponse(
-        int stable,
-        int watch,
+        int safe,
+        int interest,
         int caution,
         int alert,
-        int severe
+        int critical
 ) {
 }

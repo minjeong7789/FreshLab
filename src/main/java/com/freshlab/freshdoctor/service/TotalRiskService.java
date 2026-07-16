@@ -121,6 +121,12 @@ public class TotalRiskService {
         }
         PriceHistory latest = recentPrices.get(0);
         PriceHistory previous = recentPrices.get(6);
+        if (previous.getPrice() == null || previous.getPrice() <= 0
+                || latest.getPrice() == null || latest.getPrice() <= 0) {
+            unavailableItems.add("priceIncrease");
+            unavailableReasons.add("최근 7개 가격 중 비교 가격이 유효하지 않아 가격 상승률을 계산할 수 없습니다.");
+            return null;
+        }
         return priceIncreaseRateCalculator.calculate(
                 previous.getPrice(),
                 previous.getPriceDate(),
@@ -130,17 +136,13 @@ public class TotalRiskService {
     }
 
     private List<PriceHistory> findRecentPrices(Item item) {
-        List<PriceHistory> strictPrices = priceHistoryRepository
+        return priceHistoryRepository
                 .findTop60ByItemCodeAndMarketTypeAndKamisRankCodeAndUnitOrderByPriceDateDesc(
                         item.getItemCode(),
                         item.getDefaultMarketType(),
                         item.getDefaultRankCode(),
                         item.getDefaultUnit()
                 );
-        if (strictPrices.size() >= 7) {
-            return strictPrices;
-        }
-        return priceHistoryRepository.findTop60ByItemCodeOrderByPriceDateDesc(item.getItemCode());
     }
 
     private NormalYearPriceComparison calculateNormalYearComparison(

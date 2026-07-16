@@ -42,7 +42,7 @@ class DashboardServiceTest {
         when(riskScoreService.getLatest("1001"))
                 .thenReturn(risk("1001", 82, "ALERT", new BigDecimal("12.5")));
         when(riskScoreService.getLatest("1002"))
-                .thenReturn(risk("1002", 45, "WATCH", new BigDecimal("3.0")));
+                .thenReturn(risk("1002", 45, "CAUTION", new BigDecimal("3.0")));
         when(riskScoreService.getLatest("1003"))
                 .thenReturn(risk("1003", 82, "ALERT", new BigDecimal("18.0")));
 
@@ -59,13 +59,13 @@ class DashboardServiceTest {
         DashboardResponse response = dashboardService.getDashboard();
 
         assertThat(response.todayScore()).isEqualTo(82);
-        assertThat(response.todayGrade()).isEqualTo("ALERT");
+        assertThat(response.todayGrade()).isEqualTo("CRITICAL");
         assertThat(response.summary()).isEqualTo("오늘은 대파·배추 발주를 조심하세요.");
         assertThat(response.topRiskItems()).extracting("itemName").containsExactly("대파", "배추");
-        assertThat(response.gradeCounts().watch()).isEqualTo(1);
+        assertThat(response.gradeCounts().caution()).isEqualTo(1);
         assertThat(response.gradeCounts().alert()).isEqualTo(2);
         assertThat(response.items()).extracting("itemName").containsExactly("대파", "배추", "무");
-        assertThat(response.aiRecommendation()).isEqualTo("발주량을 보수적으로 조정하고 가격 변동을 다시 확인하세요.");
+        assertThat(response.aiRecommendation()).isEqualTo("즉시 재고를 점검하고 선발주 또는 대체 품목을 검토하세요.");
         assertThat(response.dataDate()).isEqualTo(LocalDate.of(2026, 7, 24));
     }
 

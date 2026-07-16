@@ -64,7 +64,7 @@ class RiskScoreServiceTest {
         assertThat(response.id()).isEqualTo(1L);
         assertThat(response.priceIncreaseScore()).isEqualTo(20);
         assertThat(response.finalScore()).isEqualTo(82);
-        assertThat(response.riskGrade()).isEqualTo("ALERT");
+        assertThat(response.riskGrade()).isEqualTo("CRITICAL");
     }
 
     @Test
@@ -100,7 +100,7 @@ class RiskScoreServiceTest {
 
         assertThat(response.rawScore()).isEqualTo(160);
         assertThat(response.finalScore()).isEqualTo(100);
-        assertThat(response.riskGrade()).isEqualTo("SEVERE");
+        assertThat(response.riskGrade()).isEqualTo("CRITICAL");
     }
 
     @Test
