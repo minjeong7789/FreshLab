@@ -21,6 +21,18 @@ public class ItemService {
     }
 
     @Transactional(readOnly = true)
+    public List<ItemResponse> searchItems(String keyword) {
+        if (keyword == null || keyword.isBlank()) {
+            return getItems();
+        }
+        return itemRepository
+                .findByActiveTrueAndItemNameContainingIgnoreCaseOrderByItemNameAsc(keyword.trim())
+                .stream()
+                .map(ItemResponse::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public ItemResponse getItemResponse(String itemCode) {
         return ItemResponse.from(getItem(itemCode));
     }
