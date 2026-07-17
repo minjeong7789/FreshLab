@@ -5,6 +5,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
+
 @Entity
 @Table(
         name = "user_item",
@@ -31,4 +33,22 @@ public class UserItem {
 
     @Column(name = "notification_enabled", nullable = false)
     private Boolean notificationEnabled = true;
+
+    @Column(
+            name = "price_volatility_threshold",
+            nullable = false,
+            precision = 8,
+            scale = 2,
+            columnDefinition = "decimal(8,2) default 10.00"
+    )
+    private BigDecimal priceVolatilityThreshold = new BigDecimal("10.00");
+
+    @Column(
+            name = "price_increase_threshold",
+            nullable = false,
+            precision = 8,
+            scale = 2,
+            columnDefinition = "decimal(8,2) default 10.00"
+    )
+    private BigDecimal priceIncreaseThreshold = new BigDecimal("10.00");
 }

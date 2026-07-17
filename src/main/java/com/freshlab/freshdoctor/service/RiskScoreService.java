@@ -21,18 +21,30 @@ public class RiskScoreService {
 
     private final RiskScoreRepository riskScoreRepository;
     private final ItemService itemService;
+    private final RiskAlertService riskAlertService;
 
     @Transactional
     public RiskScoreResponse upsert(RiskScoreUpsertRequest request) {
         validate(request);
         itemService.getItem(request.itemCode());
 
-        RiskScore riskScore = riskScoreRepository
+        RiskScore existing = riskScoreRepository
                 .findByItemCodeAndScoreDate(request.itemCode(), request.scoreDate())
-                .orElseGet(RiskScore::new);
+                .orElse(null);
+        RiskSnapshot previous = existing == null
+                ? riskScoreRepository
+                        .findTopByItemCodeAndScoreDateLessThanOrderByScoreDateDescIdDesc(
+                                request.itemCode(),
+                                request.scoreDate()
+                        )
+                        .map(RiskSnapshot::from)
+                        .orElse(null)
+                : RiskSnapshot.from(existing);
+        RiskScore riskScore = existing == null ? new RiskScore() : existing;
 
         apply(request, riskScore);
         RiskScore saved = riskScoreRepository.save(riskScore);
+        riskAlertService.createAlerts(previous, saved);
         return RiskScoreResponse.from(saved);
     }
 

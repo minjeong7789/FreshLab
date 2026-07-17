@@ -14,6 +14,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.same;
 import static org.mockito.Mockito.verify;
@@ -23,7 +24,12 @@ class RiskScoreServiceTest {
 
     private final RiskScoreRepository riskScoreRepository = mock(RiskScoreRepository.class);
     private final ItemService itemService = mock(ItemService.class);
-    private final RiskScoreService riskScoreService = new RiskScoreService(riskScoreRepository, itemService);
+    private final RiskAlertService riskAlertService = mock(RiskAlertService.class);
+    private final RiskScoreService riskScoreService = new RiskScoreService(
+            riskScoreRepository,
+            itemService,
+            riskAlertService
+    );
 
     @Test
     void createsRiskScoreWhenItemAndDateDoNotExist() {
@@ -41,6 +47,7 @@ class RiskScoreServiceTest {
         assertThat(response.rawScore()).isEqualTo(60);
         assertThat(response.finalScore()).isEqualTo(71);
         assertThat(response.riskGrade()).isEqualTo("ALERT");
+        verify(riskAlertService).createAlerts(isNull(), any(RiskScore.class));
     }
 
     @Test
