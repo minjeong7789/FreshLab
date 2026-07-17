@@ -11,6 +11,7 @@ import java.time.ZoneOffset;
 import java.util.Base64;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class JwtTokenProviderTest {
 
@@ -39,5 +40,40 @@ class JwtTokenProviderTest {
         assertThat(payload.get("iat").asLong()).isEqualTo(1784257200L);
         assertThat(payload.get("exp").asLong()).isEqualTo(1784260800L);
         assertThat(parts[2]).isNotBlank();
+        assertThat(provider.getUserId(token)).isEqualTo(7L);
+    }
+
+    @Test
+    void rejectsTamperedToken() {
+        JwtTokenProvider provider = providerAt("2026-07-17T03:00:00Z", 3600L);
+        User user = new User();
+        user.setUserId(7L);
+        user.setEmail("user@example.com");
+        String token = provider.createAccessToken(user);
+
+        assertThatThrownBy(() -> provider.getUserId(token + "changed"))
+                .isInstanceOf(InvalidTokenException.class);
+    }
+
+    @Test
+    void rejectsExpiredToken() {
+        JwtTokenProvider issuer = providerAt("2026-07-17T03:00:00Z", 60L);
+        User user = new User();
+        user.setUserId(7L);
+        user.setEmail("user@example.com");
+        String token = issuer.createAccessToken(user);
+        JwtTokenProvider verifier = providerAt("2026-07-17T03:02:00Z", 60L);
+
+        assertThatThrownBy(() -> verifier.getUserId(token))
+                .isInstanceOf(InvalidTokenException.class);
+    }
+
+    private JwtTokenProvider providerAt(String instant, long expirationSeconds) {
+        return new JwtTokenProvider(
+                "01234567890123456789012345678901",
+                expirationSeconds,
+                objectMapper,
+                Clock.fixed(Instant.parse(instant), ZoneOffset.UTC)
+        );
     }
 }

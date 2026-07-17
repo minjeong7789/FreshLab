@@ -7,9 +7,11 @@ import java.util.List;
 
 public interface UserItemRepository extends JpaRepository<UserItem, Long> {
 
-    List<UserItem> findByUserUserId(Long userId);
+    List<UserItem> findByUserUserIdOrderByItemItemCodeAsc(Long userId);
 
     boolean existsByUserUserIdAndItemItemCode(Long userId, String itemCode);
 
     void deleteByUserUserIdAndItemItemCode(Long userId, String itemCode);
+
+    java.util.Optional<UserItem> findByUserUserIdAndItemItemCode(Long userId, String itemCode);
 }

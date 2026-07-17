@@ -2,6 +2,7 @@ package com.freshlab.freshdoctor.security;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.freshlab.freshdoctor.domain.User;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,6 +16,7 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.security.MessageDigest;
 
 @Component
 public class JwtTokenProvider {
@@ -65,6 +67,42 @@ public class JwtTokenProvider {
 
     public long getExpirationSeconds() {
         return expirationSeconds;
+    }
+
+    public Long getUserId(String token) {
+        try {
+            String[] parts = token.split("\\.");
+            if (parts.length != 3) {
+                throw new InvalidTokenException();
+            }
+
+            String unsignedToken = parts[0] + "." + parts[1];
+            byte[] expectedSignature = Base64.getUrlDecoder().decode(sign(unsignedToken));
+            byte[] actualSignature = Base64.getUrlDecoder().decode(parts[2]);
+            if (!MessageDigest.isEqual(expectedSignature, actualSignature)) {
+                throw new InvalidTokenException();
+            }
+
+            JsonNode header = objectMapper.readTree(Base64.getUrlDecoder().decode(parts[0]));
+            if (!"HS256".equals(header.path("alg").asText())) {
+                throw new InvalidTokenException();
+            }
+
+            JsonNode payload = objectMapper.readTree(Base64.getUrlDecoder().decode(parts[1]));
+            long expiresAt = payload.path("exp").asLong(0);
+            if (expiresAt <= clock.instant().getEpochSecond()) {
+                throw new InvalidTokenException();
+            }
+            String subject = payload.path("sub").asText();
+            if (subject.isBlank()) {
+                throw new InvalidTokenException();
+            }
+            return Long.valueOf(subject);
+        } catch (InvalidTokenException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            throw new InvalidTokenException();
+        }
     }
 
     private String encodeJson(Object value) {

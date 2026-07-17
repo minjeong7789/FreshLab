@@ -6,7 +6,13 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "user_item")
+@Table(
+        name = "user_item",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_user_item_user_item_code",
+                columnNames = {"user_id", "item_code"}
+        )
+)
 @Getter
 @Setter
 @NoArgsConstructor
@@ -16,10 +22,13 @@ public class UserItem {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id")
+    @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "item_code")
+    @JoinColumn(name = "item_code", nullable = false)
     private Item item;
+
+    @Column(name = "notification_enabled", nullable = false)
+    private Boolean notificationEnabled = true;
 }
