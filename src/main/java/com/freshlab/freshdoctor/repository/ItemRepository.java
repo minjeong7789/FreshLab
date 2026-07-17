@@ -9,5 +9,7 @@ public interface ItemRepository extends JpaRepository<Item, String> {
 
     List<Item> findByActiveTrueOrderByItemNameAsc();
 
+    List<Item> findByActiveTrueAndItemNameContainingIgnoreCaseOrderByItemNameAsc(String keyword);
+
     List<Item> findByCategoryOrderByItemNameAsc(String category);
 }
