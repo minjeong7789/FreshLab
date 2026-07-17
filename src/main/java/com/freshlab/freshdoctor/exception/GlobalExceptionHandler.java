@@ -8,9 +8,34 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import jakarta.validation.ConstraintViolationException;
+import com.freshlab.freshdoctor.security.InvalidTokenException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    @ExceptionHandler(InvalidTokenException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidToken(InvalidTokenException exception) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(new ErrorResponse("UNAUTHORIZED", exception.getMessage()));
+    }
+
+    @ExceptionHandler(DuplicateWatchItemException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateWatchItem(DuplicateWatchItemException exception) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse("DUPLICATE_WATCH_ITEM", exception.getMessage()));
+    }
+
+    @ExceptionHandler(WatchItemNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleWatchItemNotFound(WatchItemNotFoundException exception) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ErrorResponse("WATCH_ITEM_NOT_FOUND", exception.getMessage()));
+    }
+
+    @ExceptionHandler(UnsupportedWatchItemException.class)
+    public ResponseEntity<ErrorResponse> handleUnsupportedWatchItem(UnsupportedWatchItemException exception) {
+        return ResponseEntity.badRequest()
+                .body(new ErrorResponse("UNSUPPORTED_WATCH_ITEM", exception.getMessage()));
+    }
+
     @ExceptionHandler(InvalidRegionException.class)
     public ResponseEntity<ErrorResponse> handleInvalidRegion(InvalidRegionException exception) {
         return ResponseEntity.badRequest()
