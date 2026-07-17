@@ -14,4 +14,6 @@ public interface UserItemRepository extends JpaRepository<UserItem, Long> {
     void deleteByUserUserIdAndItemItemCode(Long userId, String itemCode);
 
     java.util.Optional<UserItem> findByUserUserIdAndItemItemCode(Long userId, String itemCode);
+
+    List<UserItem> findByItemItemCodeAndNotificationEnabledTrue(String itemCode);
 }
