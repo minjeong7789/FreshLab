@@ -73,7 +73,9 @@ class AuthControllerTest {
                                 signupRequest()
                         )))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("DUPLICATE_EMAIL"));
+                .andExpect(jsonPath("$.code").value("DUPLICATE_EMAIL"))
+                .andExpect(jsonPath("$.timestamp").exists())
+                .andExpect(jsonPath("$.path").value("/api/auth/signup"));
     }
 
     @Test
