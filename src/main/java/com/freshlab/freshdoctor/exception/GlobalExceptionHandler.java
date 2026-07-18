@@ -12,6 +12,12 @@ import com.freshlab.freshdoctor.security.InvalidTokenException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    @ExceptionHandler(AlertNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleAlertNotFound(AlertNotFoundException exception) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ErrorResponse("ALERT_NOT_FOUND", exception.getMessage()));
+    }
+
     @ExceptionHandler(InvalidTokenException.class)
     public ResponseEntity<ErrorResponse> handleInvalidToken(InvalidTokenException exception) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
