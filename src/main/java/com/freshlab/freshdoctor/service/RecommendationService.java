@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.time.LocalDate;
 import java.util.HexFormat;
 import java.util.StringJoiner;
 
@@ -43,6 +44,20 @@ public class RecommendationService {
         Item item = itemService.getItem(itemCode);
         RiskScore riskScore = riskScoreRepository.findTopByItemCodeOrderByScoreDateDescIdDesc(itemCode)
                 .orElseThrow(() -> new RiskScoreNotFoundException(itemCode));
+
+        return generate(item, riskScore);
+    }
+
+    @Transactional
+    public RecommendationResponse generate(String itemCode, LocalDate scoreDate) {
+        Item item = itemService.getItem(itemCode);
+        RiskScore riskScore = riskScoreRepository.findByItemCodeAndScoreDate(itemCode, scoreDate)
+                .orElseThrow(() -> new RiskScoreNotFoundException(itemCode));
+
+        return generate(item, riskScore);
+    }
+
+    private RecommendationResponse generate(Item item, RiskScore riskScore) {
 
         RecommendationInput input = toInput(item, riskScore);
         String inputHash = sha256(toHashSource(input));
