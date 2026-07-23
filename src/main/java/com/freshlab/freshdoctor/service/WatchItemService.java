@@ -67,14 +67,6 @@ public class WatchItemService {
         userItemRepository.delete(userItem);
     }
 
-    @Transactional
-    public WatchItemResponse updateNotification(Long userId, String itemCode, boolean enabled) {
-        UserItem userItem = userItemRepository.findByUserUserIdAndItemItemCode(userId, itemCode)
-                .orElseThrow(WatchItemNotFoundException::new);
-        userItem.setNotificationEnabled(enabled);
-        return WatchItemResponse.from(userItem);
-    }
-
     private User requireUser(Long userId) {
         return userRepository.findById(userId).orElseThrow(InvalidTokenException::new);
     }

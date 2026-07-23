@@ -26,7 +26,8 @@ public class DailySummaryAlertService {
 
     @Transactional
     public int create(LocalDate date) {
-        Map<Long, List<UserItem>> itemsByUser = userItemRepository.findByNotificationEnabledTrue().stream()
+        Map<Long, List<UserItem>> itemsByUser =
+                userItemRepository.findAllByOrderByUserUserIdAscItemItemCodeAsc().stream()
                 .collect(Collectors.groupingBy(userItem -> userItem.getUser().getUserId()));
         int created = 0;
         for (Map.Entry<Long, List<UserItem>> entry : itemsByUser.entrySet()) {

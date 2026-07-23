@@ -24,7 +24,7 @@ class DailySummaryAlertServiceTest {
             new DailySummaryAlertService(userItemRepository, riskScoreRepository, alertRepository);
 
     @Test
-    void createsOneSummaryPerUserFromEnabledWatchItems() {
+    void createsOneSummaryPerUserFromWatchItems() {
         LocalDate date = LocalDate.of(2026, 7, 28);
         User user = new User();
         user.setUserId(1L);
@@ -34,12 +34,12 @@ class DailySummaryAlertServiceTest {
         UserItem userItem = new UserItem();
         userItem.setUser(user);
         userItem.setItem(item);
-        userItem.setNotificationEnabled(true);
+        userItem.setNotificationEnabled(false);
         RiskScore score = new RiskScore();
         score.setItemCode("1001");
         score.setFinalScore(88);
         score.setRiskGrade("CRITICAL");
-        when(userItemRepository.findByNotificationEnabledTrue()).thenReturn(List.of(userItem));
+        when(userItemRepository.findAllByOrderByUserUserIdAscItemItemCodeAsc()).thenReturn(List.of(userItem));
         when(riskScoreRepository.findTopByItemCodeAndScoreDateLessThanEqualOrderByScoreDateDescIdDesc("1001", date))
                 .thenReturn(Optional.of(score));
 

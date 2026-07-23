@@ -34,7 +34,7 @@ class RiskAlertServiceTest {
         RiskSnapshot previous = snapshot(20, "SAFE", "8.00", "9.00", 0, "NONE", 0, "NONE");
         RiskScore current = current(65, "ALERT", "13.00", "12.00", 20, "HEAVY_RAIN", 10,
                 "TYPHOON_OR_LARGE_DAMAGE");
-        when(userItemRepository.findByItemItemCodeAndNotificationEnabledTrue("1001"))
+        when(userItemRepository.findByItemItemCode("1001"))
                 .thenReturn(List.of(target));
 
         int count = riskAlertService.createAlerts(previous, current);
@@ -63,7 +63,7 @@ class RiskAlertServiceTest {
 
     @Test
     void createsDecreaseAlertWithoutLevelEntryWhenReturningToSafe() {
-        when(userItemRepository.findByItemItemCodeAndNotificationEnabledTrue("1001"))
+        when(userItemRepository.findByItemItemCode("1001"))
                 .thenReturn(List.of(target()));
         RiskSnapshot previous = snapshot(45, "CAUTION", "5.00", "5.00", 0, "NONE", 0, "NONE");
         RiskScore current = current(15, "SAFE", "5.00", "5.00", 0, "NONE", 0, "NONE");
@@ -78,7 +78,7 @@ class RiskAlertServiceTest {
 
     @Test
     void skipsDuplicateAlertForSameUserItemTypeAndDate() {
-        when(userItemRepository.findByItemItemCodeAndNotificationEnabledTrue("1001"))
+        when(userItemRepository.findByItemItemCode("1001"))
                 .thenReturn(List.of(target()));
         when(alertRepository.existsByUserUserIdAndItemCodeAndAlertTypeAndRiskScoreDate(
                 7L, "1001", AlertType.GRADE_INCREASE, LocalDate.of(2026, 7, 27)))
@@ -97,8 +97,8 @@ class RiskAlertServiceTest {
     }
 
     @Test
-    void doesNothingWhenNoUserEnabledNotificationsForItem() {
-        when(userItemRepository.findByItemItemCodeAndNotificationEnabledTrue("1001"))
+    void doesNothingWhenNoUserWatchesItem() {
+        when(userItemRepository.findByItemItemCode("1001"))
                 .thenReturn(List.of());
 
         int count = riskAlertService.createAlerts(null,
@@ -119,7 +119,7 @@ class RiskAlertServiceTest {
         UserItem target = new UserItem();
         target.setUser(user);
         target.setItem(item);
-        target.setNotificationEnabled(true);
+        target.setNotificationEnabled(false);
         target.setPriceVolatilityThreshold(new BigDecimal("10.00"));
         target.setPriceIncreaseThreshold(new BigDecimal("10.00"));
         return target;

@@ -101,27 +101,6 @@ class WatchItemServiceTest {
         verify(userItemRepository).delete(userItem);
     }
 
-    @Test
-    void updatesNotificationSetting() {
-        UserItem userItem = userItem(user(1L), item("1001", "배추"), true);
-        when(userItemRepository.findByUserUserIdAndItemItemCode(1L, "1001"))
-                .thenReturn(Optional.of(userItem));
-
-        WatchItemResponse result = service.updateNotification(1L, "1001", false);
-
-        assertThat(result.notificationEnabled()).isFalse();
-        assertThat(userItem.getNotificationEnabled()).isFalse();
-    }
-
-    @Test
-    void updateRejectsUnregisteredItem() {
-        when(userItemRepository.findByUserUserIdAndItemItemCode(1L, "1001"))
-                .thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> service.updateNotification(1L, "1001", false))
-                .isInstanceOf(WatchItemNotFoundException.class);
-    }
-
     private User user(Long id) {
         User user = new User();
         user.setUserId(id);
