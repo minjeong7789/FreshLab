@@ -15,7 +15,7 @@ public interface UserItemRepository extends JpaRepository<UserItem, Long> {
 
     java.util.Optional<UserItem> findByUserUserIdAndItemItemCode(Long userId, String itemCode);
 
-    List<UserItem> findByItemItemCodeAndNotificationEnabledTrue(String itemCode);
+    List<UserItem> findByItemItemCode(String itemCode);
 
-    List<UserItem> findByNotificationEnabledTrue();
+    List<UserItem> findAllByOrderByUserUserIdAscItemItemCodeAsc();
 }

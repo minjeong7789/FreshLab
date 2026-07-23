@@ -31,7 +31,7 @@ public class RiskAlertService {
     @Transactional
     public int createAlerts(RiskSnapshot previous, RiskScore current) {
         List<UserItem> targets = userItemRepository
-                .findByItemItemCodeAndNotificationEnabledTrue(current.getItemCode());
+                .findByItemItemCode(current.getItemCode());
         int createdCount = 0;
         for (UserItem target : targets) {
             for (AlertCandidate candidate : detect(previous, current, target)) {

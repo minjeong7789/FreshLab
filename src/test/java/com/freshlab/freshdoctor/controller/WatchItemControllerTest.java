@@ -6,7 +6,6 @@ import com.freshlab.freshdoctor.service.WatchItemService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
-import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
@@ -79,14 +78,9 @@ class WatchItemControllerTest {
     }
 
     @Test
-    void updatesNotification() throws Exception {
-        when(service.updateNotification(1L, "1001", false))
-                .thenReturn(new WatchItemResponse("1001", "배추", false));
-
-        mockMvc.perform(patch("/api/users/me/items/1001/notification")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"enabled\":false}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.notificationEnabled").value(false));
+    void doesNotAllowDisablingNotificationsForWatchItem() throws Exception {
+        mockMvc.perform(patch("/api/users/me/items/1001/notification"))
+                .andExpect(status().isNotFound());
     }
+
 }

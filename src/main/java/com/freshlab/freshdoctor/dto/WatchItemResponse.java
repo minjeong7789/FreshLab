@@ -11,7 +11,7 @@ public record WatchItemResponse(
         return new WatchItemResponse(
                 userItem.getItem().getItemCode(),
                 userItem.getItem().getItemName(),
-                Boolean.TRUE.equals(userItem.getNotificationEnabled())
+                true
         );
     }
 }
