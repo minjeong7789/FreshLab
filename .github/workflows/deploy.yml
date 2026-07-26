@@ -17,8 +17,8 @@ jobs:
 
       - name: Build and restart
         working-directory: /opt/freshdoctor/backend
-        run: docker-compose -f docker-compose.yml up -d --build
+        run: docker compose -f docker-compose.yml up -d --build
 
       - name: Show status
         working-directory: /opt/freshdoctor/backend
-        run: docker-compose -f docker-compose.yml ps
+        run: docker compose -f docker-compose.yml ps
