@@ -1,0 +1,24 @@
+name: Deploy FreshDoctor Backend
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Update source
+        working-directory: /opt/freshdoctor/backend
+        run: git pull --ff-only origin develop
+
+      - name: Build and restart
+        working-directory: /opt/freshdoctor/backend
+        run: docker-compose -f docker-compose.yml up -d --build
+
+      - name: Show status
+        working-directory: /opt/freshdoctor/backend
+        run: docker-compose -f docker-compose.yml ps
