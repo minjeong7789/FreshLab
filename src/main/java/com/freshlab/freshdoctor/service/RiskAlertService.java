@@ -8,6 +8,7 @@ import com.freshlab.freshdoctor.dto.RiskGrade;
 import com.freshlab.freshdoctor.repository.AlertRepository;
 import com.freshlab.freshdoctor.repository.UserItemRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +28,7 @@ public class RiskAlertService {
 
     private final AlertRepository alertRepository;
     private final UserItemRepository userItemRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public int createAlerts(RiskSnapshot previous, RiskScore current) {
@@ -39,7 +41,10 @@ public class RiskAlertService {
                         target.getUser().getUserId(), current.getItemCode(), candidate.type(), current.getScoreDate())) {
                     continue;
                 }
-                alertRepository.save(toAlert(target, previous, current, candidate));
+                Alert savedAlert = alertRepository.save(toAlert(target, previous, current, candidate));
+                if (savedAlert != null && savedAlert.getId() != null) {
+                    eventPublisher.publishEvent(new com.freshlab.freshdoctor.event.AlertCreatedEvent(savedAlert.getId()));
+                }
                 createdCount++;
             }
         }
