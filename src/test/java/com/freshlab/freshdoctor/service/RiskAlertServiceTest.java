@@ -8,6 +8,7 @@ import com.freshlab.freshdoctor.domain.User;
 import com.freshlab.freshdoctor.domain.UserItem;
 import com.freshlab.freshdoctor.repository.AlertRepository;
 import com.freshlab.freshdoctor.repository.UserItemRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -26,7 +27,9 @@ class RiskAlertServiceTest {
 
     private final AlertRepository alertRepository = mock(AlertRepository.class);
     private final UserItemRepository userItemRepository = mock(UserItemRepository.class);
-    private final RiskAlertService riskAlertService = new RiskAlertService(alertRepository, userItemRepository);
+    private final ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
+    private final RiskAlertService riskAlertService =
+            new RiskAlertService(alertRepository, userItemRepository, eventPublisher);
 
     @Test
     void createsGradeEntryThresholdAndIssueAlertsForInterestedUsers() {

@@ -4,6 +4,7 @@ import com.freshlab.freshdoctor.domain.*;
 import com.freshlab.freshdoctor.repository.AlertRepository;
 import com.freshlab.freshdoctor.repository.RiskScoreRepository;
 import com.freshlab.freshdoctor.repository.UserItemRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -20,8 +21,10 @@ class DailySummaryAlertServiceTest {
     private final UserItemRepository userItemRepository = mock(UserItemRepository.class);
     private final RiskScoreRepository riskScoreRepository = mock(RiskScoreRepository.class);
     private final AlertRepository alertRepository = mock(AlertRepository.class);
+    private final ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
     private final DailySummaryAlertService service =
-            new DailySummaryAlertService(userItemRepository, riskScoreRepository, alertRepository);
+            new DailySummaryAlertService(
+                    userItemRepository, riskScoreRepository, alertRepository, eventPublisher);
 
     @Test
     void createsOneSummaryPerUserFromWatchItems() {

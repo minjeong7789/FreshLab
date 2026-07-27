@@ -27,6 +27,12 @@ public class GlobalExceptionHandler {
     private static final ZoneId SEOUL_ZONE = ZoneId.of("Asia/Seoul");
     private static final String INVALID_REQUEST_MESSAGE = "The request is invalid.";
 
+    @ExceptionHandler(FcmRegistrationNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleFcmRegistrationNotFound(
+            FcmRegistrationNotFoundException ex, HttpServletRequest request) {
+        return error(HttpStatus.NOT_FOUND, "FCM_REGISTRATION_NOT_FOUND", ex.getMessage(), request);
+    }
+
     @ExceptionHandler(AlertNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleAlertNotFound(AlertNotFoundException ex, HttpServletRequest request) {
         return error(HttpStatus.NOT_FOUND, "ALERT_NOT_FOUND", ex.getMessage(), request);

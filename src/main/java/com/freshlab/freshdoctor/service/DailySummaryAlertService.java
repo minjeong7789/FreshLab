@@ -5,6 +5,7 @@ import com.freshlab.freshdoctor.repository.AlertRepository;
 import com.freshlab.freshdoctor.repository.RiskScoreRepository;
 import com.freshlab.freshdoctor.repository.UserItemRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +24,7 @@ public class DailySummaryAlertService {
     private final UserItemRepository userItemRepository;
     private final RiskScoreRepository riskScoreRepository;
     private final AlertRepository alertRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public int create(LocalDate date) {
@@ -64,7 +66,10 @@ public class DailySummaryAlertService {
             alert.setRiskScoreDate(date);
             alert.setOccurredAt(LocalDateTime.now());
             alert.setIsRead(false);
-            alertRepository.save(alert);
+            Alert savedAlert = alertRepository.save(alert);
+            if (savedAlert != null && savedAlert.getId() != null) {
+                eventPublisher.publishEvent(new com.freshlab.freshdoctor.event.AlertCreatedEvent(savedAlert.getId()));
+            }
             created++;
         }
         return created;
