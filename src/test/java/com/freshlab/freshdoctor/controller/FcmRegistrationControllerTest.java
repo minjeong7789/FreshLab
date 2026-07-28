@@ -9,11 +9,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 
 import java.time.LocalDateTime;
 
+import static com.freshlab.freshdoctor.support.MockMvcTestSupport.standaloneSetup;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -44,7 +44,7 @@ class FcmRegistrationControllerTest {
                 return 1L;
             }
         };
-        mockMvc = MockMvcBuilders.standaloneSetup(new FcmRegistrationController(service))
+        mockMvc = standaloneSetup(new FcmRegistrationController(service))
                 .setCustomArgumentResolvers(resolver)
                 .build();
     }

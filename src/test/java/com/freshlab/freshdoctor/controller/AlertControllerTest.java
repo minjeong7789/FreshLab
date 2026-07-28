@@ -9,7 +9,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 
 import java.time.LocalDate;
@@ -19,6 +18,7 @@ import java.util.List;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static com.freshlab.freshdoctor.support.MockMvcTestSupport.standaloneSetup;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -46,7 +46,7 @@ class AlertControllerTest {
                 return 1L;
             }
         };
-        mockMvc = MockMvcBuilders.standaloneSetup(new AlertController(alertService))
+        mockMvc = standaloneSetup(new AlertController(alertService))
                 .setCustomArgumentResolvers(resolver)
                 .build();
     }

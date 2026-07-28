@@ -14,13 +14,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.time.LocalDateTime;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static com.freshlab.freshdoctor.support.MockMvcTestSupport.standaloneSetup;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -36,7 +36,7 @@ class AuthControllerTest {
     void setUp() {
         authService = mock(AuthService.class);
         emailVerificationService = mock(EmailVerificationService.class);
-        mockMvc = MockMvcBuilders.standaloneSetup(new AuthController(authService, emailVerificationService))
+        mockMvc = standaloneSetup(new AuthController(authService, emailVerificationService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }

@@ -5,13 +5,13 @@ import com.freshlab.freshdoctor.service.ItemService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.util.List;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static com.freshlab.freshdoctor.support.MockMvcTestSupport.standaloneSetup;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -24,7 +24,7 @@ class ItemControllerTest {
     @BeforeEach
     void setUp() {
         itemService = mock(ItemService.class);
-        mockMvc = MockMvcBuilders.standaloneSetup(new ItemController(itemService)).build();
+        mockMvc = standaloneSetup(new ItemController(itemService)).build();
     }
 
     @Test
