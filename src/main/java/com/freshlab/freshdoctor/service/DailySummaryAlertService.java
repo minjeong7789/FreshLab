@@ -54,12 +54,12 @@ public class DailySummaryAlertService {
             Alert alert = new Alert();
             alert.setUser(user);
             alert.setItemCode(SUMMARY_ITEM_CODE);
-            alert.setItemName("Daily Summary");
+            alert.setItemName("일일 요약");
             alert.setAlertType(AlertType.DAILY_SUMMARY);
             alert.setCurrentScore(highest.getFinalScore());
             alert.setCurrentGrade(highest.getRiskGrade());
-            alert.setTitle("Daily risk summary");
-            alert.setDescription("Risk summary for " + scores.size() + " watched item(s).");
+            alert.setTitle("오늘의 관심 품목 위험 요약");
+            alert.setDescription("관심 품목 " + scores.size() + "개의 위험 현황을 확인해 보세요.");
             alert.setEvidence(scores.stream()
                     .map(score -> score.getItemCode() + "=" + score.getRiskGrade() + "(" + score.getFinalScore() + ")")
                     .collect(Collectors.joining(", ")));

@@ -53,6 +53,7 @@ public class RiskAlertService {
 
     private List<AlertCandidate> detect(RiskSnapshot previous, RiskScore current, UserItem target) {
         List<AlertCandidate> candidates = new ArrayList<>();
+        String itemName = target.getItem().getItemName();
         RiskGrade currentGrade = RiskGrade.valueOf(current.getRiskGrade());
         RiskGrade previousGrade = previous == null || previous.grade() == null
                 ? null : RiskGrade.valueOf(previous.grade());
@@ -61,17 +62,18 @@ public class RiskAlertService {
             boolean increased = currentGrade.ordinal() > previousGrade.ordinal();
             candidates.add(new AlertCandidate(
                     increased ? AlertType.GRADE_INCREASE : AlertType.GRADE_DECREASE,
-                    increased ? "Risk grade increased" : "Risk grade decreased",
-                    "Risk grade changed from " + gradeLabel(previousGrade) + " to " + gradeLabel(currentGrade) + ".",
-                    "previousScore=" + previous.score() + ", currentScore=" + current.getFinalScore()));
+                    itemName + " 위험 등급 " + (increased ? "상승" : "하락"),
+                    itemName + "의 위험 등급이 " + gradeLabel(previousGrade)
+                            + "에서 " + gradeLabel(currentGrade) + "(으)로 변경되었습니다.",
+                    "이전 점수=" + previous.score() + ", 현재 점수=" + current.getFinalScore()));
         }
 
         if (currentGrade != RiskGrade.SAFE && currentGrade != previousGrade) {
             candidates.add(new AlertCandidate(
                     AlertType.RISK_LEVEL_ENTRY,
-                    "Entered the " + gradeLabel(currentGrade) + " risk level",
-                    target.getItem().getItemName() + " entered the " + gradeLabel(currentGrade) + " risk level.",
-                    "currentScore=" + current.getFinalScore() + ", currentGrade=" + currentGrade.name()));
+                    itemName + " " + gradeLabel(currentGrade) + " 단계 진입",
+                    itemName + "이(가) " + gradeLabel(currentGrade) + " 단계에 진입했습니다.",
+                    "현재 점수=" + current.getFinalScore() + ", 현재 등급=" + gradeLabel(currentGrade)));
         }
 
         BigDecimal volatilityThreshold = thresholdOrDefault(target.getPriceVolatilityThreshold());
@@ -79,9 +81,9 @@ public class RiskAlertService {
                 current.getPriceVolatilityRate(), volatilityThreshold)) {
             candidates.add(new AlertCandidate(
                     AlertType.PRICE_VOLATILITY_THRESHOLD,
-                    "Price volatility threshold exceeded",
-                    "Price volatility exceeded the configured threshold.",
-                    "volatility=" + current.getPriceVolatilityRate() + "%, threshold=" + volatilityThreshold + "%"));
+                    itemName + " 가격 변동성 기준 초과",
+                    itemName + "의 가격 변동성이 설정한 기준을 초과했습니다.",
+                    "가격 변동성=" + current.getPriceVolatilityRate() + "%, 기준=" + volatilityThreshold + "%"));
         }
 
         BigDecimal increaseThreshold = thresholdOrDefault(target.getPriceIncreaseThreshold());
@@ -89,9 +91,9 @@ public class RiskAlertService {
                 current.getPriceIncreaseRate(), increaseThreshold)) {
             candidates.add(new AlertCandidate(
                     AlertType.PRICE_INCREASE_THRESHOLD,
-                    "Price increase threshold exceeded",
-                    "The latest price increase rate exceeded the configured threshold.",
-                    "increaseRate=" + current.getPriceIncreaseRate() + "%, threshold=" + increaseThreshold + "%"));
+                    itemName + " 가격 상승률 기준 초과",
+                    itemName + "의 최근 가격 상승률이 설정한 기준을 초과했습니다.",
+                    "가격 상승률=" + current.getPriceIncreaseRate() + "%, 기준=" + increaseThreshold + "%"));
         }
 
         if (isNewSevereIssue(previous == null ? null : previous.weatherScore(),
@@ -99,9 +101,9 @@ public class RiskAlertService {
                 current.getWeatherRiskType(), SEVERE_WEATHER_SCORE)) {
             candidates.add(new AlertCandidate(
                     AlertType.SEVERE_WEATHER_ISSUE,
-                    "Severe weather issue detected",
-                    textOrDefault(current.getWeatherReason(), "A severe weather risk was detected."),
-                    "type=" + current.getWeatherRiskType() + ", weatherScore=" + current.getWeatherScore()));
+                    itemName + " 중대한 기상 위험 감지",
+                    textOrDefault(current.getWeatherReason(), "중대한 기상 위험이 감지되었습니다."),
+                    "기상 위험 유형=" + current.getWeatherRiskType() + ", 기상 점수=" + current.getWeatherScore()));
         }
 
         if (isNewSevereIssue(previous == null ? null : previous.newsScore(),
@@ -109,9 +111,9 @@ public class RiskAlertService {
                 current.getNewsRiskType(), SEVERE_NEWS_SCORE)) {
             candidates.add(new AlertCandidate(
                     AlertType.SEVERE_NEWS_ISSUE,
-                    "Severe news or supply issue detected",
-                    textOrDefault(current.getNewsReason(), "A severe news or supply risk was detected."),
-                    "type=" + current.getNewsRiskType() + ", newsScore=" + current.getNewsScore()));
+                    itemName + " 중대한 뉴스·수급 위험 감지",
+                    textOrDefault(current.getNewsReason(), "중대한 뉴스 또는 수급 위험이 감지되었습니다."),
+                    "뉴스 위험 유형=" + current.getNewsRiskType() + ", 뉴스 점수=" + current.getNewsScore()));
         }
         return candidates;
     }
@@ -153,7 +155,13 @@ public class RiskAlertService {
     }
 
     private String gradeLabel(RiskGrade grade) {
-        return grade.name().toLowerCase();
+        return switch (grade) {
+            case SAFE -> "안정";
+            case INTEREST -> "관심";
+            case CAUTION -> "주의";
+            case ALERT -> "경계";
+            case CRITICAL -> "심각";
+        };
     }
 
     private String textOrDefault(String value, String fallback) {
