@@ -52,6 +52,8 @@ class DailySummaryAlertServiceTest {
         verify(alertRepository).save(captor.capture());
         assertThat(captor.getValue().getAlertType()).isEqualTo(AlertType.DAILY_SUMMARY);
         assertThat(captor.getValue().getCurrentScore()).isEqualTo(88);
+        assertThat(captor.getValue().getTitle()).isEqualTo("오늘의 관심 품목 위험 요약");
+        assertThat(captor.getValue().getDescription()).isEqualTo("관심 품목 1개의 위험 현황을 확인해 보세요.");
         assertThat(captor.getValue().getEvidence()).contains("1001=CRITICAL(88)");
     }
 }

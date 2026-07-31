@@ -60,6 +60,8 @@ class RiskAlertServiceTest {
             assertThat(alert.getCurrentScore()).isEqualTo(65);
             assertThat(alert.getRiskScoreDate()).isEqualTo(LocalDate.of(2026, 7, 27));
             assertThat(alert.getIsRead()).isFalse();
+            assertThat(alert.getTitle()).containsPattern("[가-힣]");
+            assertThat(alert.getDescription()).containsPattern("[가-힣]");
             assertThat(alert.getEvidence()).isNotBlank();
         });
     }
@@ -117,7 +119,7 @@ class RiskAlertServiceTest {
         user.setUserId(7L);
         Item item = new Item();
         item.setItemCode("1001");
-        item.setItemName("Cabbage");
+        item.setItemName("배추");
         item.setItemType(Item.ItemType.DOMESTIC);
         UserItem target = new UserItem();
         target.setUser(user);
@@ -145,10 +147,10 @@ class RiskAlertServiceTest {
         current.setPriceVolatilityRate(new BigDecimal(volatility));
         current.setWeatherScore(weatherScore);
         current.setWeatherRiskType(weatherType);
-        current.setWeatherReason("weather reason");
+        current.setWeatherReason("집중호우로 인한 출하 피해 위험");
         current.setNewsScore(newsScore);
         current.setNewsRiskType(newsType);
-        current.setNewsReason("news reason");
+        current.setNewsReason("태풍으로 인한 생산지 피해");
         return current;
     }
 }
