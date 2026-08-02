@@ -11,6 +11,16 @@ public interface NewsArticleRepository extends JpaRepository<NewsArticle, Long> 
 
     List<NewsArticle> findTop20ByItemCodeOrderByPublishedAtDescCreatedAtDesc(String itemCode);
 
+    List<NewsArticle> findTop50ByItemCodeOrderByPublishedAtDescCreatedAtDesc(String itemCode);
+
+    List<NewsArticle> findTop20ByItemCodeAndRepresentativeRiskFalseOrderByPublishedAtDescCreatedAtDesc(String itemCode);
+
+    Optional<NewsArticle> findFirstByItemCodeAndRepresentativeRiskTrueOrderByNewsRiskScoreDescPublishedAtDescCreatedAtDesc(
+            String itemCode
+    );
+
+    List<NewsArticle> findByItemCodeAndRepresentativeRiskTrue(String itemCode);
+
     List<NewsArticle> findByItemCodeAndPublishedAtAfterOrderByPublishedAtDesc(
             String itemCode,
             LocalDateTime publishedAfter

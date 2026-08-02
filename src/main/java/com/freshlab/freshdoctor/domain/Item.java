@@ -27,6 +27,33 @@ public class Item {
     @Column(name = "category")
     private String category;
 
+    @Column(name = "kamis_category_code", length = 10)
+    private String kamisCategoryCode;
+
+    @Column(name = "kamis_item_code", length = 10)
+    private String kamisItemCode;
+
+    @Column(name = "kamis_kind_code", length = 10)
+    private String kamisKindCode;
+
+    @Column(name = "unit")
+    private String unit;
+
+    @Column(name = "grade")
+    private String grade;
+
+    @Column(name = "default_market_type")
+    private String defaultMarketType;
+
+    @Column(name = "default_rank_code")
+    private String defaultRankCode;
+
+    @Column(name = "default_unit")
+    private String defaultUnit;
+
+    @Column(name = "news_keyword")
+    private String newsKeyword;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "item_type", nullable = false)
     private ItemType itemType;

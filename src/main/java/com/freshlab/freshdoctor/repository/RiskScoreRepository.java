@@ -13,6 +13,16 @@ public interface RiskScoreRepository extends JpaRepository<RiskScore, Long> {
 
     Optional<RiskScore> findTopByItemCodeOrderByScoreDateDescIdDesc(String itemCode);
 
+    Optional<RiskScore> findTopByItemCodeAndScoreDateLessThanOrderByScoreDateDescIdDesc(
+            String itemCode,
+            LocalDate scoreDate
+    );
+
+    Optional<RiskScore> findTopByItemCodeAndScoreDateLessThanEqualOrderByScoreDateDescIdDesc(
+            String itemCode,
+            LocalDate scoreDate
+    );
+
     List<RiskScore> findByItemCodeAndScoreDateBetweenOrderByScoreDateAsc(
             String itemCode,
             LocalDate startDate,

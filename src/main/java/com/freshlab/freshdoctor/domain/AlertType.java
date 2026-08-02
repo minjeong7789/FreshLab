@@ -1,0 +1,12 @@
+package com.freshlab.freshdoctor.domain;
+
+public enum AlertType {
+    GRADE_INCREASE,
+    GRADE_DECREASE,
+    RISK_LEVEL_ENTRY,
+    PRICE_VOLATILITY_THRESHOLD,
+    PRICE_INCREASE_THRESHOLD,
+    SEVERE_WEATHER_ISSUE,
+    SEVERE_NEWS_ISSUE,
+    DAILY_SUMMARY
+}

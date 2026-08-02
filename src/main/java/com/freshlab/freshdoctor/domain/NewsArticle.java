@@ -45,6 +45,18 @@ public class NewsArticle {
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
+    @Column(name = "matched_keywords")
+    private String matchedKeywords;
+
+    @Column(name = "news_risk_type")
+    private String newsRiskType;
+
+    @Column(name = "risk_reason")
+    private String riskReason;
+
+    @Column(name = "representative_risk", nullable = false)
+    private Boolean representativeRisk = false;
+
     @Column(name = "published_at")
     private LocalDateTime publishedAt;
 

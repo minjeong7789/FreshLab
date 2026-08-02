@@ -57,7 +57,7 @@ FreshDoctor는 가격 · 기상 · 수급 · 뉴스 데이터를 통합 분석�
 
 | 영역 | 기술 |
 |---|---|
-| 백엔드 | Spring Boot 3.x (Java 17) |
+| 백엔드 | Spring Boot 3.x (Java 21) |
 | 프론트엔드 | Thymeleaf (안정화 후 React 전환 예정) |
 | 데이터베이스 | MySQL |
 | AI | GPT API + 규칙 기반 리스크 스코어 엔진 |
@@ -83,7 +83,7 @@ FreshDoctor는 가격 · 기상 · 수급 · 뉴스 데이터를 통합 분석�
 
 ### 요구 사항
 
-- Java 17
+- Java 21
 - MySQL 8.x
 - Gradle
 
